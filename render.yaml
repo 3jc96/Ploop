@@ -1,0 +1,31 @@
+# Render Blueprint - Ploop backend + PostgreSQL
+# Connect this repo to Render; it will create the DB and web service.
+
+databases:
+  - name: ploop-db
+    databaseName: ploop
+    user: ploop
+    plan: free
+    region: oregon
+
+services:
+  - type: web
+    name: ploop-api
+    runtime: node
+    region: oregon
+    plan: free
+    rootDir: backend
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: ploop-db
+          property: connectionString
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
+      # Add these in Render Dashboard after first deploy (sensitive):
+      # JWT_SECRET, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_PLACES_API_KEY, ADMIN_EMAILS

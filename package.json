@@ -1,0 +1,17 @@
+{
+  "name": "ploop",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "start": "concurrently --names \"backend,expo\" --prefix-colors \"blue,magenta\" \"npm run start:backend\" \"npm run start:mobile\"",
+    "start:backend": "cd backend && npm run dev",
+    "start:mobile": "cd mobile && CI=false npx expo start --go --web --port 8081",
+    "start:mobile:tunnel": "cd mobile && CI=false npx expo start --go --web --port 8081 --tunnel",
+    "start:with-tunnel": "concurrently --names \"backend,expo\" --prefix-colors \"blue,magenta\" \"npm run start:backend\" \"npm run start:mobile:tunnel\"",
+    "start:mobile:ios": "cd mobile && CI=false npx expo start --go --ios --web --port 8081",
+    "clean-ports": "node -e \"const {execSync}=require('child_process');[8081,8082].forEach(p=>{try{const pid=execSync('lsof -t -iTCP:'+p+' -sTCP:LISTEN',{encoding:'utf8'}).trim();if(pid){execSync('kill '+pid);console.log('Killed PID '+pid+' on port '+p);}}catch(e){}})\""
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}
