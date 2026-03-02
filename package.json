@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "start": "concurrently --names \"backend,expo\" --prefix-colors \"blue,magenta\" \"npm run start:backend\" \"npm run start:mobile\"",
+    "start": "npm run clean-ports 2>/dev/null; concurrently --names \"backend,expo\" --prefix-colors \"blue,magenta\" \"npm run start:backend\" \"npm run start:mobile\"",
     "start:backend": "cd backend && npm run dev",
     "start:mobile": "cd mobile && CI=false npx expo start --go --web --port 8081",
     "start:mobile:tunnel": "cd mobile && CI=false npx expo start --go --web --port 8081 --tunnel",
