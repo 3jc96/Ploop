@@ -128,6 +128,16 @@ export async function ensureFeatureTables(): Promise<void> {
     CREATE INDEX IF NOT EXISTS idx_users_email ON users (email);
   `);
 
+  // Email auth: add password_hash for provider='email'
+  await safe(`
+    DO $$
+    BEGIN
+      IF to_regclass('public.users') IS NOT NULL THEN
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash text;
+      END IF;
+    END $$;
+  `);
+
   // Link toilet_reviews to users (optional: anonymous reviews keep user_id NULL)
   await safe(`
     DO $$
@@ -137,6 +147,22 @@ export async function ensureFeatureTables(): Promise<void> {
         CREATE INDEX IF NOT EXISTS idx_toilet_reviews_user_id ON toilet_reviews (user_id);
       END IF;
     END $$;
+  `);
+
+  // Poop game: global leaderboard scores
+  await safe(`
+    CREATE TABLE IF NOT EXISTS poop_game_scores (
+      id uuid PRIMARY KEY,
+      score int NOT NULL,
+      display_name text,
+      user_id uuid REFERENCES users(id) ON DELETE SET NULL,
+      device_id text,
+      created_at timestamptz NOT NULL DEFAULT now()
+    );
+  `);
+  await safe(`
+    CREATE INDEX IF NOT EXISTS idx_poop_game_scores_score ON poop_game_scores (score DESC);
+    CREATE INDEX IF NOT EXISTS idx_poop_game_scores_created ON poop_game_scores (created_at DESC);
   `);
 }
 

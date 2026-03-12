@@ -14,6 +14,7 @@ import analyticsRouter from './routes/analytics';
 import hintsRouter from './routes/hints';
 import authRouter from './routes/auth';
 import adminRouter from './routes/admin';
+import poopGameRouter from './routes/poopGame';
 import { optionalAuth } from './middleware/auth';
 import { ensureFeatureTables } from './utils/ensureTables';
 import { checkDatabase } from './utils/checkDatabase';
@@ -163,6 +164,7 @@ app.use('/api/favorites', favoritesRouter);
 app.use('/api/analytics', analyticsRouter);
 app.use('/api/hints', hintsRouter);
 app.use('/api/admin', adminRouter);
+app.use('/api/poop-game', poopGameRouter);
 
 // Error handling middleware
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {

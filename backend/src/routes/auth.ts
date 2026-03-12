@@ -1,10 +1,13 @@
 import express, { Request, Response } from 'express';
 import { body, validationResult } from 'express-validator';
+import bcrypt from 'bcrypt';
 import { OAuth2Client } from 'google-auth-library';
 import appleSignin from 'apple-signin-auth';
 import pool from '../config/database';
 import { signToken } from '../middleware/auth';
 import { requireAuth } from '../middleware/auth';
+
+const BCRYPT_ROUNDS = 10;
 
 const router = express.Router();
 
