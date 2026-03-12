@@ -12,6 +12,8 @@ export interface Toilet {
   has_bidet: boolean;
   has_seat_warmer: boolean;
   has_hand_soap: boolean;
+  has_baby_changing: boolean;
+  has_family_room: boolean;
   number_of_stalls: number;
   toilet_type: 'squat' | 'sit' | 'both';
   pay_to_enter: boolean;
@@ -36,6 +38,8 @@ export interface CreateToiletRequest {
   has_bidet: boolean;
   has_seat_warmer: boolean;
   has_hand_soap: boolean;
+  has_baby_changing?: boolean;
+  has_family_room?: boolean;
   number_of_stalls: number;
   toilet_type: 'squat' | 'sit' | 'both';
   pay_to_enter: boolean;

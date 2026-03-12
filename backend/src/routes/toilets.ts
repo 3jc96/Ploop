@@ -409,6 +409,8 @@ router.post(
     body('has_bidet').isBoolean(),
     body('has_seat_warmer').isBoolean(),
     body('has_hand_soap').isBoolean(),
+    body('has_baby_changing').optional().isBoolean(),
+    body('has_family_room').optional().isBoolean(),
     body('number_of_stalls').isInt({ min: 1 }),
     body('toilet_type').isIn(['squat', 'sit', 'both']),
     body('pay_to_enter').isBoolean(),
@@ -466,6 +468,8 @@ router.post(
           data.has_bidet,
           data.has_seat_warmer,
           data.has_hand_soap,
+          data.has_baby_changing ?? false,
+          data.has_family_room ?? false,
           data.number_of_stalls,
           data.toilet_type,
           data.pay_to_enter,
@@ -521,6 +525,8 @@ router.put(
     body('has_bidet').optional().isBoolean(),
     body('has_seat_warmer').optional().isBoolean(),
     body('has_hand_soap').optional().isBoolean(),
+    body('has_baby_changing').optional().isBoolean(),
+    body('has_family_room').optional().isBoolean(),
     body('number_of_stalls').optional().isInt({ min: 1 }),
     body('toilet_type').optional().isIn(['squat', 'sit', 'both']),
     body('pay_to_enter').optional().isBoolean(),
@@ -604,6 +610,14 @@ router.put(
       if (updates.has_hand_soap !== undefined) {
         updateFields.push(`has_hand_soap = $${paramIndex++}`);
         updateValues.push(updates.has_hand_soap);
+      }
+      if ((updates as any).has_baby_changing !== undefined) {
+        updateFields.push(`has_baby_changing = $${paramIndex++}`);
+        updateValues.push((updates as any).has_baby_changing);
+      }
+      if ((updates as any).has_family_room !== undefined) {
+        updateFields.push(`has_family_room = $${paramIndex++}`);
+        updateValues.push((updates as any).has_family_room);
       }
       if (updates.number_of_stalls !== undefined) {
         updateFields.push(`number_of_stalls = $${paramIndex++}`);

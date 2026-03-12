@@ -1,5 +1,5 @@
 import express, { Request, Response } from 'express';
-import { param, query, validationResult } from 'express-validator';
+import { body, param, query, validationResult } from 'express-validator';
 import pool from '../config/database';
 import { requireAuth, requireAdmin } from '../middleware/auth';
 
@@ -152,6 +152,88 @@ router.get(
     } catch (e) {
       console.error('Admin list reviews:', e);
       res.status(500).json({ error: 'Failed to list reviews' });
+    }
+  }
+);
+
+// PATCH /api/admin/reviews/:id – edit a review (moderation) and optionally the toilet name
+router.patch(
+  '/reviews/:id',
+  [
+    param('id').isUUID(),
+    body('cleanliness_score').optional().isInt({ min: 1, max: 5 }),
+    body('smell_score').optional().isInt({ min: 1, max: 5 }),
+    body('review_text').optional().isString().trim(),
+    body('reviewed_by').optional().isString().trim(),
+    body('toilet_name').optional().isString().trim(),
+  ],
+  async (req: Request, res: Response) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
+      }
+      const { id } = req.params;
+      const { cleanliness_score, smell_score, review_text, reviewed_by, toilet_name } = req.body;
+
+      const updates: string[] = [];
+      const values: any[] = [];
+      let idx = 1;
+      if (cleanliness_score !== undefined) {
+        updates.push(`cleanliness_score = $${idx++}`);
+        values.push(cleanliness_score);
+      }
+      if (smell_score !== undefined) {
+        updates.push(`smell_score = $${idx++}`);
+        values.push(smell_score);
+      }
+      if (review_text !== undefined) {
+        updates.push(`review_text = $${idx++}`);
+        values.push(review_text);
+      }
+      if (reviewed_by !== undefined) {
+        updates.push(`reviewed_by = $${idx++}`);
+        values.push(reviewed_by);
+      }
+      if (updates.length === 0 && !toilet_name) {
+        return res.status(400).json({ error: 'No fields to update' });
+      }
+
+      if (updates.length > 0) {
+        values.push(id);
+        const result = await pool.query(
+          `UPDATE toilet_reviews SET ${updates.join(', ')} WHERE id = $${idx} RETURNING *`,
+          values
+        );
+        if (result.rowCount === 0) {
+          return res.status(404).json({ error: 'Review not found' });
+        }
+      }
+
+      if (toilet_name !== undefined && toilet_name !== '') {
+        const reviewRow = await pool.query(
+          'SELECT toilet_id FROM toilet_reviews WHERE id = $1',
+          [id]
+        );
+        if (reviewRow.rows.length > 0) {
+          await pool.query(
+            'UPDATE toilets SET name = $1, updated_at = now() WHERE id = $2',
+            [toilet_name.trim(), reviewRow.rows[0].toilet_id]
+          );
+        }
+      }
+
+      const reviewResult = await pool.query(
+        'SELECT * FROM toilet_reviews WHERE id = $1',
+        [id]
+      );
+      if (reviewResult.rows.length === 0) {
+        return res.status(404).json({ error: 'Review not found' });
+      }
+      res.json({ review: reviewResult.rows[0] });
+    } catch (e) {
+      console.error('Admin update review:', e);
+      res.status(500).json({ error: 'Failed to update review' });
     }
   }
 );

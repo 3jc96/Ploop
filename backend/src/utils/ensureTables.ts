@@ -92,6 +92,8 @@ export async function ensureFeatureTables(): Promise<void> {
     BEGIN
       IF to_regclass('public.toilets') IS NOT NULL THEN
         ALTER TABLE toilets ADD COLUMN IF NOT EXISTS google_place_id text;
+        ALTER TABLE toilets ADD COLUMN IF NOT EXISTS has_baby_changing boolean DEFAULT false;
+        ALTER TABLE toilets ADD COLUMN IF NOT EXISTS has_family_room boolean DEFAULT false;
         CREATE INDEX IF NOT EXISTS idx_toilets_google_place_id ON toilets (google_place_id);
         CREATE INDEX IF NOT EXISTS idx_toilets_active ON toilets (is_active) WHERE is_active = true;
       END IF;

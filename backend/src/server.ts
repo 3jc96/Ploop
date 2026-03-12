@@ -113,7 +113,7 @@ app.get('/', (req, res) => {
       uploadPhoto: '/api/toilets/:id/photo',
       landmarks: '/api/landmarks/search',
       adminDashboard: 'GET /api/admin/analytics/dashboard',
-      adminReviews: 'GET/DELETE /api/admin/reviews',
+      adminReviews: 'GET/PATCH/DELETE /api/admin/reviews',
       landmarkDetails: '/api/landmarks/:placeId',
       locationDetails: '/api/landmarks/location/details',
       directions: '/api/directions',
