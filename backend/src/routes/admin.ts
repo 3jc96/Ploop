@@ -131,7 +131,7 @@ router.get(
       if (!errors.isEmpty()) {
         return res.status(400).json({ errors: errors.array() });
       }
-      const limit = Number(req.query.limit) || 50;
+      const limit = Math.min(Number(req.query.limit) || 100, 500);
       const offset = Number(req.query.offset) || 0;
       const result = await pool.query(
         `SELECT r.id, r.toilet_id, r.cleanliness_score, r.smell_score, r.review_text, r.reviewed_at, r.reviewed_by, r.user_id,
@@ -139,7 +139,7 @@ router.get(
                 t.name AS toilet_name, t.address AS toilet_address
          FROM toilet_reviews r
          LEFT JOIN users u ON r.user_id = u.id
-         JOIN toilets t ON r.toilet_id = t.id
+         LEFT JOIN toilets t ON r.toilet_id = t.id
          ORDER BY r.reviewed_at DESC
          LIMIT $1 OFFSET $2`,
         [limit, offset]
