@@ -25,6 +25,29 @@ router.post(
       const deviceId = (req.header('x-ploop-device-id') || req.header('X-Ploop-Device-Id') || '').trim() || null;
       const name = display_name?.trim() || (req as any).user?.display_name || (req as any).user?.email || 'Anonymous';
 
+      // Check for existing entry with same name (case-insensitive)
+      const existing = await pool.query(
+        `SELECT id, score FROM poop_game_scores WHERE LOWER(TRIM(display_name)) = LOWER(TRIM($1)) LIMIT 1`,
+        [name]
+      );
+
+      if (existing.rows.length > 0) {
+        const row = existing.rows[0];
+        if (score <= row.score) {
+          return res.status(409).json({
+            error: 'That name is already on the leaderboard. Choose a different name.',
+            existing_score: row.score,
+          });
+        }
+        // New score is higher – update existing entry
+        await pool.query(
+          `UPDATE poop_game_scores SET score = $1, user_id = $2, device_id = $3, created_at = now()
+           WHERE id = $4`,
+          [score, userId, deviceId, row.id]
+        );
+        return res.status(200).json({ id: row.id, score, display_name: name });
+      }
+
       const id = uuidv4();
       await pool.query(
         `INSERT INTO poop_game_scores (id, score, display_name, user_id, device_id)

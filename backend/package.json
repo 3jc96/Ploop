@@ -7,7 +7,9 @@
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
-    "migrate": "ts-node src/migrations/run.ts"
+    "migrate": "ts-node src/migrations/run.ts",
+    "import-toilets": "ts-node scripts/import-toilets-to-render.ts",
+    "set-johor-bahru-bidet": "ts-node scripts/set-johor-bahru-bidet.ts"
   },
   "keywords": [
     "toilet",
