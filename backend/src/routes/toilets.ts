@@ -447,16 +447,17 @@ router.post(
       // Normalize name for duplicate detection
       const normalizedName = data.name.toLowerCase().trim().replace(/\s+/g, ' ');
 
-      // Insert toilet
+      // Insert toilet (include has_baby_changing, has_family_room if columns exist)
       const result = await pool.query(
         `
         INSERT INTO toilets (
           name, address, latitude, longitude, location,
           has_toilet_paper, has_bidet, has_seat_warmer, has_hand_soap,
+          has_baby_changing, has_family_room,
           number_of_stalls, toilet_type, pay_to_enter, entry_fee,
           wheelchair_accessible, created_by, normalized_name, google_place_id
         )
-        VALUES ($1, $2, $3, $4, ST_SetSRID(ST_MakePoint($4, $3), 4326)::geography, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+        VALUES ($1, $2, $3, $4, ST_SetSRID(ST_MakePoint($4, $3), 4326)::geography, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
         RETURNING *
         `,
         [
@@ -504,9 +505,14 @@ router.post(
       const updatedToilet = updatedResult.rows[0];
 
       res.status(201).json(updatedToilet);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating toilet:', error);
-      res.status(500).json({ error: 'Failed to create toilet' });
+      const msg = error?.message || String(error);
+      const hint = error?.code === '42703' ? 'Database schema may be outdated.' : msg;
+      res.status(500).json({
+        error: 'Failed to create toilet',
+        detail: process.env.NODE_ENV === 'production' ? undefined : hint,
+      });
     }
   }
 );
