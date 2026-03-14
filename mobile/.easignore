@@ -1,0 +1,50 @@
+# Dependencies
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# Build artifacts
+*.log
+.DS_Store
+*.pem
+
+# Local development
+.expo/
+.expo-shared/
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+web-build/
+
+# Misc
+.env.local
+.env.*.local
+
+# iOS - exclude entire ios/ so EAS runs prebuild and uses app.json version/buildNumber
+# (EAS archive root may be Ploop/ when using git, so include both patterns)
+/ios
+ios/
+mobile/ios/
+ios/Pods/
+ios/build/
+*.xcworkspace
+!default.xcworkspace
+xcuserdata/
+*.xcuserstate
+project.xcworkspace/
+
+# Android
+android/app/build/
+android/.gradle/
+android/local.properties
+*.iml
+.idea/
+
+# Temporary files
+*.swp
+*.swo
+*~
+

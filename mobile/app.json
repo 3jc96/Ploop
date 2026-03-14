@@ -1,0 +1,78 @@
+{
+  "expo": {
+    "name": "Ploop",
+    "slug": "ploop",
+    "scheme": "ploop",
+    "version": "1.2.12",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "updates": {
+      "enabled": false
+    },
+    "ios": {
+      "supportsTablet": true,
+      "buildNumber": "29",
+      "bundleIdentifier": "com.ploop.app",
+      "config": {
+        "googleMapsApiKey": "AIzaSyCLKBC2IeU1rQVSdhSZBCfDu984LcwiSXg"
+      },
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Ploop needs your location to find nearby toilets.",
+        "NSPhotoLibraryUsageDescription": "Ploop needs access to your photos to upload toilet images.",
+        "NSFaceIDUsageDescription": "Ploop uses Face ID to unlock the Admin section.",
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSAppTransportSecurity": {
+          "NSAllowsLocalNetworking": true
+        }
+      }
+    },
+    "android": {
+      "package": "com.ploop.app",
+      "usesCleartextTraffic": true,
+      "permissions": [
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.RECORD_AUDIO"
+      ],
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyCLKBC2IeU1rQVSdhSZBCfDu984LcwiSXg"
+        }
+      }
+    },
+    "plugins": [
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Allow Ploop to use your location to find nearby toilets."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "The app accesses your photos to let you upload toilet images."
+        }
+      ],
+      "expo-asset",
+      "expo-secure-store"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "1a68d0eb-38ca-4355-8647-ecae49131430"
+      },
+      "googleMapsApiKey": "AIzaSyCLKBC2IeU1rQVSdhSZBCfDu984LcwiSXg"
+    },
+    "owner": "jcrs96"
+  }
+}

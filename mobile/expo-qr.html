@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ploop – Open in Expo Go</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: system-ui, -apple-system, sans-serif; margin: 0; padding: 24px; background: #0b1020; color: #e2e8f0; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+    .card { background: #1e293b; border-radius: 16px; padding: 28px; max-width: 360px; width: 100%; }
+    h1 { font-size: 22px; margin: 0 0 8px; color: #fff; }
+    .sub { color: #94a3b8; font-size: 14px; margin-bottom: 24px; }
+    #qr { display: block; margin: 0 auto 20px; border-radius: 12px; border: 2px solid #334155; }
+    .url-label { font-size: 12px; color: #94a3b8; margin-bottom: 6px; }
+    #url { display: block; background: #0f172a; color: #38bdf8; padding: 12px 16px; border-radius: 8px; font-size: 13px; word-break: break-all; margin-bottom: 20px; }
+    .hint { font-size: 13px; color: #64748b; margin-top: 16px; line-height: 1.5; }
+    .link { color: #38bdf8; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Ploop</h1>
+    <p class="sub">Open in Expo Go (SDK 54)</p>
+    <img id="qr" src="" alt="QR Code" width="220" height="220">
+    <span class="url-label">Or paste this URL in Expo Go:</span>
+    <code id="url">—</code>
+    <p class="hint">Bookmark this page when the dev server is running: same Wi‑Fi, then scan or paste the URL above.</p>
+    <div class="host-edit" style="margin-top:16px;text-align:left;">
+      <label for="host" style="font-size:12px;color:#94a3b8;">Host (if opened as file):</label>
+      <input id="host" type="text" placeholder="e.g. 192.168.1.5 or localhost" style="width:100%;margin-top:4px;padding:8px 12px;border-radius:8px;border:1px solid #334155;background:#0f172a;color:#e2e8f0;font-size:14px;">
+    </div>
+  </div>
+  <script>
+    (function() {
+      var port = '8081';
+      var urlEl = document.getElementById('url');
+      var qrEl = document.getElementById('qr');
+      var hostInput = document.getElementById('host');
+
+      function update(host) {
+        host = (host || '').trim() || 'localhost';
+        var expUrl = 'exp://' + host + ':' + port;
+        if (urlEl) urlEl.textContent = expUrl;
+        if (qrEl) qrEl.src = 'https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=' + encodeURIComponent(expUrl);
+      }
+
+      var host = (typeof window !== 'undefined' && window.location && window.location.hostname) ? window.location.hostname : '';
+      if (!host && hostInput) {
+        hostInput.placeholder = 'Enter your computer IP (e.g. 192.168.1.5)';
+      } else if (hostInput) {
+        hostInput.parentElement.style.display = 'none';
+      }
+      if (hostInput) {
+        hostInput.addEventListener('input', function() { update(hostInput.value); });
+        hostInput.addEventListener('change', function() { update(hostInput.value); });
+      }
+      update(host || 'localhost');
+    })();
+  </script>
+</body>
+</html>
