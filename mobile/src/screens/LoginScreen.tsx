@@ -132,7 +132,11 @@ export default function LoginScreen() {
       let urlToOpen: string | undefined;
       if (redirectUri.startsWith('https://auth.expo.io/') && discovery) {
         const authUrl = request.url ?? (await (request as any).makeAuthUrlAsync(discovery));
-        const returnUrl = AuthSession.makeRedirectUri();
+        let returnUrl = AuthSession.makeRedirectUri({ path: 'auth' });
+        // auth.expo.io rejects bare scheme (e.g. ploop://) – ensure path for standalone
+        if (returnUrl && /^[a-zA-Z][a-zA-Z0-9+.-]*:\/\/$/.test(returnUrl)) {
+          returnUrl = `${returnUrl}auth`;
+        }
         urlToOpen = `${redirectUri}/start?${new URLSearchParams({ authUrl, returnUrl }).toString()}`;
       }
       const result = await promptAsync(urlToOpen ? { url: urlToOpen } : undefined);
