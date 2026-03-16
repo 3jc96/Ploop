@@ -1,0 +1,74 @@
+diff --git a/node_modules/expo-gaode-map/android/src/main/java/expo/modules/gaodemap/ExpoGaodeMapView.kt b/node_modules/expo-gaode-map/android/src/main/java/expo/modules/gaodemap/ExpoGaodeMapView.kt
+index fdff64d..cf49aff 100644
+--- a/node_modules/expo-gaode-map/android/src/main/java/expo/modules/gaodemap/ExpoGaodeMapView.kt
++++ b/node_modules/expo-gaode-map/android/src/main/java/expo/modules/gaodemap/ExpoGaodeMapView.kt
+@@ -389,6 +389,16 @@ class ExpoGaodeMapView(context: Context, appContext: AppContext) : ExpoView(cont
+         uiManager.setUserLocationRepresentation(representation)
+     }
+ 
++    /**
++     * 设置地图显示语言
++     * @param lang "en" 英文, "zh_cn" 中文
++     */
++    fun setMapLanguage(lang: String) {
++        mainHandler.post {
++            aMap.setMapLanguage(lang)
++        }
++    }
++
+     /** 设置是否显示交通路况 */
+     fun setShowsTraffic(show: Boolean) = uiManager.setShowsTraffic(show)
+     /** 设置是否显示建筑物 */
+diff --git a/node_modules/expo-gaode-map/android/src/main/java/expo/modules/gaodemap/ExpoGaodeMapViewModule.kt b/node_modules/expo-gaode-map/android/src/main/java/expo/modules/gaodemap/ExpoGaodeMapViewModule.kt
+index fe0610b..c47f25b 100644
+--- a/node_modules/expo-gaode-map/android/src/main/java/expo/modules/gaodemap/ExpoGaodeMapViewModule.kt
++++ b/node_modules/expo-gaode-map/android/src/main/java/expo/modules/gaodemap/ExpoGaodeMapViewModule.kt
+@@ -69,6 +69,10 @@ class ExpoGaodeMapViewModule : Module() {
+         styleData?.let { view.setCustomMapStyle(it) }
+       }
+ 
++      Prop<String>("mapLanguage") { view, lang ->
++        view.setMapLanguage(lang)
++      }
++
+       OnViewDidUpdateProps { view: ExpoGaodeMapView ->
+         if (view.mapType != 0) {
+           view.setMapType(view.mapType)
+diff --git a/node_modules/expo-gaode-map/ios/ExpoGaodeMapView.swift b/node_modules/expo-gaode-map/ios/ExpoGaodeMapView.swift
+index 3732b1f..92c0a34 100644
+--- a/node_modules/expo-gaode-map/ios/ExpoGaodeMapView.swift
++++ b/node_modules/expo-gaode-map/ios/ExpoGaodeMapView.swift
+@@ -55,6 +55,8 @@ class ExpoGaodeMapView: ExpoView, MAMapViewDelegate, UIGestureRecognizerDelegate
+     var customMapStyleData: [String: Any]?
+     /// 是否启用国内外地图自动切换
+     var enableWorldMapSwitch: Bool = false
++    /// 地图显示语言: 0=中文, 1=英文
++    var mapLanguage: Int = 0
+     
+     // MARK: - 事件派发器
+     
+@@ -943,6 +945,7 @@ class ExpoGaodeMapView: ExpoView, MAMapViewDelegate, UIGestureRecognizerDelegate
+ 
+         mapView = resolvedMapView
+         super.addSubview(resolvedMapView)
++        resolvedMapView.mapLanguage = NSNumber(value: mapLanguage)
+ 
+         cameraManager = CameraManager(mapView: resolvedMapView)
+         uiManager = UIManager(mapView: resolvedMapView)
+diff --git a/node_modules/expo-gaode-map/ios/ExpoGaodeMapViewModule.swift b/node_modules/expo-gaode-map/ios/ExpoGaodeMapViewModule.swift
+index 26ddad3..73a8141 100644
+--- a/node_modules/expo-gaode-map/ios/ExpoGaodeMapViewModule.swift
++++ b/node_modules/expo-gaode-map/ios/ExpoGaodeMapViewModule.swift
+@@ -97,6 +97,12 @@ public class ExpoGaodeMapViewModule: Module {
+                 view.enableWorldMapSwitch = enabled
+             }
+             
++            Prop("mapLanguage") { (view: ExpoGaodeMapView, lang: String) in
++                let val = lang == "en" ? 1 : 0
++                view.mapLanguage = val
++                view.mapView?.mapLanguage = NSNumber(value: val)
++            }
++            
+             OnViewDidUpdateProps { (view: ExpoGaodeMapView) in
+                 view.applyProps()
+             }

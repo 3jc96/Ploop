@@ -29,6 +29,7 @@ export interface Toilet {
   photos?: Array<{ id: string; photo_url: string; uploaded_at: string }>;
   confidence_score?: number;
   last_verified_at?: string;
+  last_serviced_at?: string;
   active_reports?: number;
   report_summary?: Array<{ type: string; note?: string | null; created_at: string; expires_at: string }>;
 }
@@ -270,6 +271,12 @@ export const api = {
     return response.data;
   },
 
+  markServiced: async (toiletId: string): Promise<{ toilet: Toilet; message: string }> => {
+    const auth = await api.getAuthHeaders();
+    const response = await httpClient.post(API_ENDPOINTS.markServiced(toiletId), {}, { headers: auth });
+    return response.data;
+  },
+
   auth: {
     loginWithGoogle: async (payload: { id_token?: string; code?: string; redirect_uri?: string; code_verifier?: string }): Promise<{ token: string; user: AuthUser }> => {
       const response = await httpClient.post(API_ENDPOINTS.authGoogle, payload, { timeout: AUTH_TIMEOUT_MS });
@@ -356,7 +363,7 @@ export const api = {
   // Submit a quick report (closed/busy/etc)
   submitReport: async (
     toiletId: string,
-    data: { type: 'closed' | 'out_of_order' | 'no_access' | 'gross' | 'busy'; note?: string }
+    data: { type: 'closed' | 'out_of_order' | 'no_access' | 'gross' | 'busy' | 'needs_cleaning'; note?: string }
   ): Promise<any> => {
     const cfg = await api.withDeviceHeaders();
     const response = await httpClient.post(API_ENDPOINTS.reports(toiletId), data, cfg);

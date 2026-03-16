@@ -94,6 +94,7 @@ export async function ensureFeatureTables(): Promise<void> {
         ALTER TABLE toilets ADD COLUMN IF NOT EXISTS google_place_id text;
         ALTER TABLE toilets ADD COLUMN IF NOT EXISTS has_baby_changing boolean DEFAULT false;
         ALTER TABLE toilets ADD COLUMN IF NOT EXISTS has_family_room boolean DEFAULT false;
+        ALTER TABLE toilets ADD COLUMN IF NOT EXISTS last_serviced_at timestamptz;
         CREATE INDEX IF NOT EXISTS idx_toilets_google_place_id ON toilets (google_place_id);
         CREATE INDEX IF NOT EXISTS idx_toilets_active ON toilets (is_active) WHERE is_active = true;
       END IF;

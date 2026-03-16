@@ -23,15 +23,14 @@ prepare_react_native_project!
 target 'Ploop' do
   use_expo_modules!
 
-  # React Native Maps with Google Maps provider
-  # This will automatically include GoogleMaps and Google-Maps-iOS-Utils
-  pod 'react-native-google-maps', :path => '../node_modules/react-native-maps'
-
   if ENV['EXPO_USE_COMMUNITY_AUTOLINKING'] == '1'
     config_command = ['node', '-e', "process.argv=['', '', 'config'];require('@react-native-community/cli').run()"];
   else
     config_command = [
-      'npx',
+      'node',
+      '--no-warnings',
+      '--eval',
+      'require(\'expo/bin/autolinking\')',
       'expo-modules-autolinking',
       'react-native-config',
       '--json',
@@ -40,6 +39,9 @@ target 'Ploop' do
     ]
   end
 
+# @generated begin react-native-maps - expo prebuild (DO NOT MODIFY) sync-e9cc66c360abe50bc66d89fffb3c55b034d7d369
+  pod 'react-native-google-maps', path: File.dirname(`node --print "require.resolve('react-native-maps/package.json')"`)
+# @generated end react-native-maps
   config = use_native_modules!(config_command)
 
   use_frameworks! :linkage => podfile_properties['ios.useFrameworks'].to_sym if podfile_properties['ios.useFrameworks']
@@ -60,24 +62,5 @@ target 'Ploop' do
       :mac_catalyst_enabled => false,
       :ccache_enabled => ccache_enabled?(podfile_properties),
     )
-    
-    # Fix deployment target for all pods (minimum iOS 12.0)
-    installer.pods_project.targets.each do |target|
-      target.build_configurations.each do |config|
-        if config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'].to_f < 12.0
-          config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '12.0'
-        end
-      end
-    end
-
-    # Xcode "User Script Sandboxing" breaks CocoaPods embed scripts on newer Xcode
-    # (e.g. prevents copying/signing frameworks inside DerivedData), which can lead to:
-    # - Sandbox: ditto/cp deny file-write-create .../Ploop.app/Frameworks/React.framework/...
-    # - React.framework: bundle format unrecognized, invalid, or unsuitable
-    installer.pods_project.targets.each do |target|
-      target.build_configurations.each do |config|
-        config.build_settings['ENABLE_USER_SCRIPT_SANDBOXING'] = 'NO'
-      end
-    end
   end
 end

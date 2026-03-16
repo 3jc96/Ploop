@@ -2,6 +2,7 @@ import express, { Request, Response } from 'express';
 import '../types/auth';
 import { body, param, query, validationResult } from 'express-validator';
 import pool from '../config/database';
+import { requireAuth } from '../middleware/auth';
 import { checkDuplicate } from '../utils/duplicateDetection';
 import { CreateToiletRequest, UpdateToiletRequest, NearbyToiletsQuery } from '../types/toilet';
 import multer from 'multer';
@@ -270,6 +271,38 @@ router.get(
     } catch (error) {
       console.error('Error fetching toilet:', error);
       res.status(500).json({ error: 'Failed to fetch toilet' });
+    }
+  }
+);
+
+// Mark toilet as just cleaned/serviced (for businesses)
+router.post(
+  '/:id/serviced',
+  [param('id').isUUID()],
+  requireAuth,
+  async (req: Request, res: Response) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
+      }
+      const { id } = req.params;
+      const result = await pool.query(
+        `UPDATE toilets SET last_serviced_at = now(), updated_at = now()
+         WHERE id = $1 AND is_active = true
+         RETURNING id, name, last_serviced_at`,
+        [id]
+      );
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: 'Toilet not found' });
+      }
+      res.json({ toilet: result.rows[0], message: 'Marked as just cleaned' });
+    } catch (e: any) {
+      if (e?.code === '42703') {
+        return res.status(500).json({ error: 'Database schema may be outdated. Please redeploy.' });
+      }
+      console.error('Error marking toilet serviced:', e);
+      res.status(500).json({ error: 'Failed to update' });
     }
   }
 );

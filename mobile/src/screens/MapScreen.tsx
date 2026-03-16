@@ -21,19 +21,22 @@ import {
 } from 'react-native';
 import { openInMapsWithChoice } from '../utils/maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
+import PloopMapView, { PloopMarker, PloopPolyline } from '../components/PloopMapView';
+import { useMapProvider } from '../context/MapProviderContext';
 import * as Location from 'expo-location';
 import * as Haptics from 'expo-haptics';
 import { api, DirectionStep, Toilet } from '../services/api';
+import { searchNearbyToilets as searchGaodeToilets } from '../services/gaodePoi';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 import { hapticLight, hapticSuccess, getErrorMessage, isNetworkError, getOxymoronicTagline } from '../utils/engagement';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { PoiClickEvent } from '../native/PoiClickTypes';
 import { PoiClickManager } from '../native/PoiClickManager';
 import { LoadingBannerWithTrivia } from '../components/LoadingBannerWithTrivia';
+import { useMapPreload } from '../context/MapPreloadContext';
 import { API_BASE_URL } from '../config/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { playPloopSoundIfEnabled } from '../utils/ploopSound';
 
 interface Landmark {
   id: string;
@@ -99,9 +102,12 @@ const SOS_OPTIONS = [
 const MapScreen: React.FC = () => {
   const navigation = useNavigation();
   const { user } = useAuth();
+  const { t, locale, setLocale } = useLanguage();
+  const preload = useMapPreload();
+  const { provider: mapProvider, simulateChinaLocation, setSimulateChinaLocation, BEIJING_COORDS } = useMapProvider();
   const insets = useSafeAreaInsets();
   const { width, height } = Dimensions.get('window');
-  const mapRef = useRef<MapView>(null);
+  const mapRef = useRef<any>(null);
   const [location, setLocation] = useState<Location.LocationObject | null>(null);
   const [toilets, setToilets] = useState<Toilet[]>([]);
   const [loading, setLoading] = useState(true);
@@ -250,11 +256,6 @@ const MapScreen: React.FC = () => {
     };
   }, []);
 
-  // Play startup ploop sound once when MapScreen first mounts (app is ready)
-  useEffect(() => {
-    playPloopSoundIfEnabled();
-  }, []);
-
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -397,7 +398,7 @@ const MapScreen: React.FC = () => {
     [favoriteIds]
   );
 
-  const submitReport = useCallback(async (toilet: Toilet, type: 'closed' | 'out_of_order' | 'no_access' | 'gross' | 'busy') => {
+  const submitReport = useCallback(async (toilet: Toilet, type: 'closed' | 'out_of_order' | 'no_access' | 'gross' | 'busy' | 'needs_cleaning') => {
     try {
       await api.submitReport(toilet.id, { type });
       await api.bumpLocalMetric('reports', 1);
@@ -478,9 +479,9 @@ const MapScreen: React.FC = () => {
   }, [localStats]);
 
 
-  // Coords for map display – use real location only; while waiting, show zoomed-out world view
-  const displayCoords = location?.coords ?? WAITING_COORDS;
-  const hasRealLocation = !!location?.coords;
+  // Coords for map display – use real location, or Beijing when simulating China (dev)
+  const displayCoords = simulateChinaLocation ? BEIJING_COORDS : (location?.coords ?? WAITING_COORDS);
+  const hasRealLocation = !!location?.coords || simulateChinaLocation;
 
   useEffect(() => {
     navigationActiveRef.current = navigationActive;
@@ -503,21 +504,39 @@ const MapScreen: React.FC = () => {
   }, [routePolyline]);
 
   useEffect(() => {
-    getLocationAndToilets();
-  }, []);
+    if (simulateChinaLocation) {
+      setLocation({ coords: BEIJING_COORDS } as any);
+      fetchNearbyToilets(BEIJING_COORDS).catch(() => {});
+      setLoading(false);
+    } else if (preload) {
+      setLocation(preload.location);
+      setToilets(preload.toilets);
+      setLoading(false);
+      hasEverReceivedLocationRef.current = true;
+      currentCoordsRef.current = preload.location.coords;
+      lastLocationStateUpdateRef.current = { atMs: Date.now(), coords: preload.location.coords };
+      startLocationWatch({ highAccuracy: false });
+    } else {
+      getLocationAndToilets();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- getLocationAndToilets is stable; only re-run when simulateChinaLocation or preload changes
+  }, [simulateChinaLocation, preload]);
 
-  // When we first get real location, fly map to user (from zoomed-out placeholder)
+  // When we first get real location (or simulate China), fly map to user (from zoomed-out placeholder)
   const hasAnimatedToUserRef = useRef(false);
   useEffect(() => {
-    if (location?.coords && !hasAnimatedToUserRef.current && mapRef.current) {
+    if (simulateChinaLocation) hasAnimatedToUserRef.current = false;
+  }, [simulateChinaLocation]);
+  useEffect(() => {
+    const coords = simulateChinaLocation ? BEIJING_COORDS : location?.coords;
+    if (coords && !hasAnimatedToUserRef.current && mapRef.current) {
       hasAnimatedToUserRef.current = true;
-      const c = location.coords;
       mapRef.current.animateToRegion(
-        { latitude: c.latitude, longitude: c.longitude, latitudeDelta: 0.01, longitudeDelta: 0.01 },
+        { latitude: coords.latitude, longitude: coords.longitude, latitudeDelta: 0.01, longitudeDelta: 0.01 },
         400
       );
     }
-  }, [location?.coords?.latitude, location?.coords?.longitude]);
+  }, [location?.coords?.latitude, location?.coords?.longitude, simulateChinaLocation, BEIJING_COORDS]);
 
   useEffect(() => {
     return () => {
@@ -532,57 +551,6 @@ const MapScreen: React.FC = () => {
     };
   }, []);
 
-  const fetchNearbyToilets = useCallback(
-    async (coords: { latitude: number; longitude: number }) => {
-      const cacheKey = `cache.nearbyToilets.v2.${filterWheelchairOnly ? 1 : 0}.${filterFreeOnly ? 1 : 0}.${minConfidence}`;
-      try {
-        const nearbyToilets = await api.getNearbyToilets({
-          latitude: coords.latitude,
-          longitude: coords.longitude,
-          radius: 2000,
-          wheelchair_accessible: filterWheelchairOnly ? true : undefined,
-          free_only: filterFreeOnly ? true : undefined,
-          min_confidence: minConfidence > 0 ? minConfidence : undefined,
-        });
-        setToilets(nearbyToilets?.toilets ?? []);
-        setBackendUnreachable(false);
-        try {
-          await AsyncStorage.setItem(
-            cacheKey,
-            JSON.stringify({
-              atMs: Date.now(),
-              coords,
-              toilets: nearbyToilets?.toilets ?? [],
-            })
-          );
-        } catch {
-          // ignore cache write failures
-        }
-      } catch (e: any) {
-        if (isNetworkError(e)) setBackendUnreachable(true);
-        // If the backend request fails, fall back to last cached result so the UI
-        // doesn't go blank (especially helpful on flaky mobile networks).
-        try {
-          const raw = await AsyncStorage.getItem(cacheKey);
-          if (raw) {
-            const parsed = JSON.parse(raw);
-            if (Array.isArray(parsed?.toilets)) {
-              if (__DEV__) console.log('Using cached toilets (backend request failed).');
-              setToilets(parsed.toilets ?? []);
-              return;
-            }
-          }
-        } catch {
-          // ignore cache read failures
-        }
-        throw e;
-      }
-    },
-    [filterFreeOnly, filterWheelchairOnly, minConfidence]
-  );
-
-  // Don't fetch until we have real location – getLocationAndToilets will fetch when GPS is ready
-
   const metersBetween = useCallback((a: { latitude: number; longitude: number }, b: { latitude: number; longitude: number }) => {
     const toRad = (x: number) => (x * Math.PI) / 180;
     const R = 6371000;
@@ -596,6 +564,104 @@ const MapScreen: React.FC = () => {
     const c = 2 * Math.atan2(Math.sqrt(s), Math.sqrt(1 - s));
     return R * c;
   }, []);
+
+  const fetchNearbyToilets = useCallback(
+    async (coords: { latitude: number; longitude: number }) => {
+      const cacheKey = `cache.nearbyToilets.v2.${filterWheelchairOnly ? 1 : 0}.${filterFreeOnly ? 1 : 0}.${minConfidence}.${mapProvider}`;
+      const mergeWithGaode = mapProvider === 'amap';
+
+      const mergeAndSort = (backendToilets: Toilet[], gaodeToilets: Toilet[]): Toilet[] => {
+        const DEDUPE_METERS = 40;
+        const center = { latitude: coords.latitude, longitude: coords.longitude };
+        const isNear = (a: Toilet, b: Toilet) =>
+          metersBetween({ latitude: a.latitude, longitude: a.longitude }, { latitude: b.latitude, longitude: b.longitude }) < DEDUPE_METERS;
+        const gaodeFiltered = gaodeToilets.filter(
+          (g) => !backendToilets.some((b) => isNear(g, b))
+        );
+        const merged = [...backendToilets, ...gaodeFiltered];
+        return merged
+          .map((t) => ({
+            ...t,
+            distance: t.distance ?? Math.round(metersBetween(center, { latitude: t.latitude, longitude: t.longitude })),
+          }))
+          .sort((a, b) => (a.distance ?? 999999) - (b.distance ?? 999999));
+      };
+
+      try {
+        const [backendRes, gaodeToilets] = await Promise.all([
+          api.getNearbyToilets({
+            latitude: coords.latitude,
+            longitude: coords.longitude,
+            radius: 2000,
+            wheelchair_accessible: filterWheelchairOnly ? true : undefined,
+            free_only: filterFreeOnly ? true : undefined,
+            min_confidence: minConfidence > 0 ? minConfidence : undefined,
+          }),
+          mergeWithGaode
+            ? searchGaodeToilets({
+                latitude: coords.latitude,
+                longitude: coords.longitude,
+                radius: 5000,
+                limit: 80,
+              })
+            : Promise.resolve([]),
+        ]);
+
+        const backendToilets = backendRes?.toilets ?? [];
+        const toilets = mergeWithGaode ? mergeAndSort(backendToilets, gaodeToilets) : backendToilets;
+        setToilets(toilets);
+        setBackendUnreachable(false);
+        try {
+          await AsyncStorage.setItem(
+            cacheKey,
+            JSON.stringify({ atMs: Date.now(), coords, toilets })
+          );
+        } catch {
+          // ignore cache write failures
+        }
+      } catch (e: any) {
+        if (isNetworkError(e)) setBackendUnreachable(true);
+        // If the backend request fails, try cache; when using Amap, also try Gaode-only.
+        try {
+          const raw = await AsyncStorage.getItem(cacheKey);
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed?.toilets)) {
+              if (__DEV__) console.log('Using cached toilets (backend request failed).');
+              setToilets(parsed.toilets ?? []);
+              return;
+            }
+          }
+        } catch {
+          // ignore cache read failures
+        }
+        if (mergeWithGaode) {
+          try {
+            const gaodeToilets = await searchGaodeToilets({
+              latitude: coords.latitude,
+              longitude: coords.longitude,
+              radius: 5000,
+              limit: 80,
+            });
+            if (gaodeToilets.length > 0) {
+              const center = { latitude: coords.latitude, longitude: coords.longitude };
+              const sorted = gaodeToilets
+                .map((t) => ({ ...t, distance: t.distance ?? Math.round(metersBetween(center, { latitude: t.latitude, longitude: t.longitude })) }))
+                .sort((a, b) => (a.distance ?? 999999) - (b.distance ?? 999999));
+              setToilets(sorted);
+              return;
+            }
+          } catch {
+            // ignore
+          }
+        }
+        throw e;
+      }
+    },
+    [filterFreeOnly, filterWheelchairOnly, minConfidence, mapProvider, metersBetween]
+  );
+
+  // Don't fetch until we have real location – getLocationAndToilets will fetch when GPS is ready
 
   const snapToPolyline = useCallback(
     (
@@ -795,16 +861,10 @@ const MapScreen: React.FC = () => {
       let cancelled = false;
       (async () => {
         try {
-          if (!location?.coords) return;
-          const nearbyToilets = await api.getNearbyToilets({
-            latitude: location.coords.latitude,
-            longitude: location.coords.longitude,
-            radius: 2000,
-            wheelchair_accessible: filterWheelchairOnly ? true : undefined,
-            free_only: filterFreeOnly ? true : undefined,
-            min_confidence: minConfidence > 0 ? minConfidence : undefined,
-          });
-          if (!cancelled) setToilets(nearbyToilets?.toilets ?? []);
+          const coords = simulateChinaLocation ? BEIJING_COORDS : location?.coords;
+          if (!coords) return;
+          await fetchNearbyToilets(coords);
+          if (cancelled) return;
           try {
             const stats = await api.getLocalMetrics();
             if (!cancelled) setLocalStats(stats);
@@ -818,7 +878,7 @@ const MapScreen: React.FC = () => {
       return () => {
         cancelled = true;
       };
-    }, [filterFreeOnly, filterWheelchairOnly, location?.coords.latitude, location?.coords.longitude, minConfidence])
+    }, [filterFreeOnly, filterWheelchairOnly, location?.coords?.latitude, location?.coords?.longitude, minConfidence, simulateChinaLocation, fetchNearbyToilets])
   );
 
   useEffect(() => {
@@ -1134,12 +1194,14 @@ const MapScreen: React.FC = () => {
     pendingRegionRef.current = region;
     const now = Date.now();
     const elapsed = now - lastRegionCommitAtRef.current;
+    // Use longer throttle for Amap – reduces re-renders during pan/zoom
+    const throttleMs = mapProvider === 'amap' ? 1100 : 650;
     const commit = () => {
       lastRegionCommitAtRef.current = Date.now();
       setRenderRegion(pendingRegionRef.current);
       pendingRegionRef.current = null;
     };
-    if (elapsed > 650) {
+    if (elapsed > throttleMs) {
       commit();
       return;
     }
@@ -1147,9 +1209,9 @@ const MapScreen: React.FC = () => {
       regionThrottleTimerRef.current = setTimeout(() => {
         regionThrottleTimerRef.current = null;
         if (pendingRegionRef.current) commit();
-      }, 650 - elapsed);
+      }, throttleMs - elapsed);
     }
-  }, []);
+  }, [mapProvider]);
 
   const toiletsToRenderOnMap = useMemo(() => {
     const t = toilets ?? [];
@@ -1168,7 +1230,9 @@ const MapScreen: React.FC = () => {
     let filtered = (Array.isArray(toilets) ? toilets : []).filter((t) => t.latitude >= minLat && t.latitude <= maxLat && t.longitude >= minLng && t.longitude <= maxLng);
 
     // When zoomed out, cap marker count to keep the map smooth.
-    if (r.longitudeDelta > 0.06 && filtered.length > 180) {
+    // Use lower cap for Amap (Gaode) – tends to be slower with many markers
+    const markerCap = mapProvider === 'amap' ? 50 : 180;
+    if (r.longitudeDelta > 0.06 && filtered.length > markerCap) {
       const center = { latitude: r.latitude, longitude: r.longitude };
       filtered = filtered
         .map((t) => ({
@@ -1176,12 +1240,12 @@ const MapScreen: React.FC = () => {
           d: typeof t.distance === 'number' ? t.distance : metersBetween(center, { latitude: t.latitude, longitude: t.longitude }),
         }))
         .sort((a, b) => a.d - b.d)
-        .slice(0, 180)
+        .slice(0, markerCap)
         .map((x) => x.t);
     }
 
     return filtered;
-  }, [metersBetween, renderRegion, toilets, viewMode]);
+  }, [metersBetween, mapProvider, renderRegion, toilets, viewMode]);
 
   const mapMarkers = useMemo(() => {
     // Returns either individual toilets or cluster markers (when zoomed out).
@@ -1488,7 +1552,12 @@ const MapScreen: React.FC = () => {
 
   // Wire up native POI taps (Google Maps-level placeId accuracy).
   // This does NOT replace the map visuals; it only makes the built-in POI icons tappable/reliable.
+  // Only used when provider is Google; Amap has its own onPressPoi.
   useEffect(() => {
+    if (mapProvider !== 'google') {
+      setNativePoiEnabled(false);
+      return;
+    }
     if (!PoiClickManager.isAvailable()) {
       setNativePoiEnabled(false);
       return;
@@ -1505,7 +1574,7 @@ const MapScreen: React.FC = () => {
         // ignore
       }
     };
-  }, []);
+  }, [mapProvider]);
 
   useEffect(() => {
     // Disable in list mode to avoid doing native work when the map isn't visible.
@@ -1524,6 +1593,10 @@ const MapScreen: React.FC = () => {
   useEffect(() => {
     if (viewMode !== 'map') return;
     if (mapReadyNonce <= 0) return;
+    if (mapProvider !== 'google') {
+      setNativePoiEnabled(false);
+      return;
+    }
     if (!PoiClickManager.isAvailable()) {
       setNativePoiEnabled(false);
       return;
@@ -1535,7 +1608,7 @@ const MapScreen: React.FC = () => {
     } catch {
       setNativePoiEnabled(false);
     }
-  }, [mapReadyNonce, viewMode]);
+  }, [mapReadyNonce, viewMode, mapProvider]);
 
   useEffect(() => {
     return () => {
@@ -1612,6 +1685,12 @@ const MapScreen: React.FC = () => {
     }, 90);
   };
 
+  const isRecentlyServiced = (iso: string): boolean => {
+    const d = new Date(iso);
+    const now = new Date();
+    return (now.getTime() - d.getTime()) < 48 * 60 * 60 * 1000; // 48h
+  };
+
   const formatScore = (score: number | string | null | undefined): string => {
     if (score === null || score === undefined) {
       return 'N/A';
@@ -1655,10 +1734,10 @@ const MapScreen: React.FC = () => {
           <Text style={styles.backendBannerUrl}>Current: {API_BASE_URL}</Text>
           <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
             <TouchableOpacity style={styles.backendBannerDismiss} onPress={() => getLocationAndToilets()}>
-              <Text style={styles.backendBannerDismissText}>Retry</Text>
+              <Text style={styles.backendBannerDismissText}>{t('retry')}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.backendBannerDismiss} onPress={() => setBackendBannerDismissed(true)}>
-              <Text style={styles.backendBannerDismissText}>Dismiss</Text>
+              <Text style={styles.backendBannerDismissText}>{t('dismiss')}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -1688,7 +1767,7 @@ const MapScreen: React.FC = () => {
         <View style={[styles.searchContainer, { top: Math.max(insets.top, 8) + 8, right: 72 }]}>
           <TextInput
             style={styles.searchInput}
-            placeholder="Search landmarks (e.g., Changi Airport Termi...)"
+            placeholder={t('searchLandmarksPlaceholder')}
             value={searchQuery}
             onChangeText={setSearchQuery}
             onFocus={() => setShowSearch(true)}
@@ -1753,9 +1832,8 @@ const MapScreen: React.FC = () => {
 
       {viewMode === 'map' && (
         <View style={styles.mapWrap} pointerEvents="box-none">
-          <MapView
+          <PloopMapView
             ref={mapRef}
-            provider={PROVIDER_GOOGLE}
             style={styles.map}
             initialRegion={{
             latitude: displayCoords.latitude,
@@ -1809,14 +1887,14 @@ const MapScreen: React.FC = () => {
           >
           {/* Route polyline (in-app directions) */}
           {routePolyline && routePolyline.length > 1 && (
-            <Polyline coordinates={routePolyline} strokeColor="#1A73E8" strokeWidth={6} />
+            <PloopPolyline coordinates={routePolyline} strokeColor="#1A73E8" strokeWidth={6} />
           )}
 
           {/* Destination marker for active route */}
           {routeDestination && (
-            <Marker
+            <PloopMarker
               coordinate={{ latitude: routeDestination.latitude, longitude: routeDestination.longitude }}
-              title={routeDestination.title || 'Destination'}
+              title={routeDestination.title || t('destination')}
               tracksViewChanges={false}
               pinColor="#1A73E8"
             />
@@ -1824,7 +1902,7 @@ const MapScreen: React.FC = () => {
 
           {/* Landmark Marker */}
           {selectedLandmark && (
-            <Marker
+            <PloopMarker
               coordinate={{
                 latitude: selectedLandmark.latitude,
                 longitude: selectedLandmark.longitude,
@@ -1842,10 +1920,10 @@ const MapScreen: React.FC = () => {
               <View style={styles.landmarkMarkerContainer}>
                 <Text style={styles.landmarkMarkerEmoji}>📍</Text>
               </View>
-            </Marker>
+            </PloopMarker>
           )}
           {(mapMarkers?.clusters ?? []).map((c) => (
-            <Marker
+            <PloopMarker
               key={`cluster-${c.key}`}
               coordinate={{ latitude: c.latitude, longitude: c.longitude }}
               tracksViewChanges={false}
@@ -1870,11 +1948,11 @@ const MapScreen: React.FC = () => {
               <View style={styles.clusterBubble}>
                 <Text style={styles.clusterBubbleText}>{c.count}</Text>
               </View>
-            </Marker>
+            </PloopMarker>
           ))}
 
           {(mapMarkers?.toilets ?? []).map((toilet) => (
-            <Marker
+            <PloopMarker
               key={toilet.id}
               coordinate={{
                 latitude: toilet.latitude,
@@ -1898,9 +1976,9 @@ const MapScreen: React.FC = () => {
                   <View style={styles.markerBadgeInner} />
                 </View>
               </View>
-            </Marker>
+            </PloopMarker>
           ))}
-        </MapView>
+        </PloopMapView>
         </View>
       )}
 
@@ -1909,7 +1987,7 @@ const MapScreen: React.FC = () => {
         <View style={[styles.navBanner, { top: Math.max(insets.top, 12) + 12 }]}>
           <View style={styles.navBannerTop}>
             <Text style={styles.navBannerTitle} numberOfLines={1}>
-              {routeDestination.title || 'Navigating'}
+              {routeDestination.title || t('navigating')}
             </Text>
             <View style={styles.navBannerTopActions}>
               <Pressable
@@ -1926,7 +2004,7 @@ const MapScreen: React.FC = () => {
           <Text style={styles.navBannerMeta}>
             {routeMeta?.durationText ? `${routeMeta.durationText}` : ''}
             {routeMeta?.distanceText ? ` • ${routeMeta.distanceText}` : ''}
-            {!routeMeta?.durationText && !routeMeta?.distanceText ? 'Route ready' : ''}
+            {!routeMeta?.durationText && !routeMeta?.distanceText ? t('routeReady') : ''}
           </Text>
           <View style={styles.navModeRow}>
             <ScrollView
@@ -2016,13 +2094,16 @@ const MapScreen: React.FC = () => {
           {arrivalToilet && (
             <View style={styles.arrivalActionsRow}>
               <Pressable style={styles.arrivalActionChip} onPress={() => submitReport(arrivalToilet, 'busy')}>
-                <Text style={styles.arrivalActionChipText}>Busy</Text>
+                <Text style={styles.arrivalActionChipText}>{t('busy')}</Text>
               </Pressable>
               <Pressable style={styles.arrivalActionChip} onPress={() => submitReport(arrivalToilet, 'gross')}>
-                <Text style={styles.arrivalActionChipText}>Gross</Text>
+                <Text style={styles.arrivalActionChipText}>{t('gross')}</Text>
+              </Pressable>
+              <Pressable style={styles.arrivalActionChip} onPress={() => submitReport(arrivalToilet, 'needs_cleaning')}>
+                <Text style={styles.arrivalActionChipText}>{t('needsCleaning')}</Text>
               </Pressable>
               <Pressable style={styles.arrivalActionChip} onPress={() => submitReport(arrivalToilet, 'closed')}>
-                <Text style={styles.arrivalActionChipText}>Closed</Text>
+                <Text style={styles.arrivalActionChipText}>{t('closed')}</Text>
               </Pressable>
             </View>
           )}
@@ -2175,9 +2256,9 @@ const MapScreen: React.FC = () => {
             }}
           >
             <View style={styles.settingsRowText}>
-              <Text style={styles.settingsRowTitle}>Account</Text>
+              <Text style={styles.settingsRowTitle}>{t('account')}</Text>
               <Text style={styles.settingsRowSubtitle}>
-                {user ? (user.display_name || user.email) : 'Sign in to save, edit & remove your reviews'}
+                {user ? (user.display_name || user.email) : t('signInToSaveReviews')}
               </Text>
             </View>
             <Text style={styles.settingsRowChevron}>›</Text>
@@ -2190,8 +2271,8 @@ const MapScreen: React.FC = () => {
             }}
           >
             <View style={styles.settingsRowText}>
-              <Text style={styles.settingsRowTitle}>💩 Catch the Poop</Text>
-              <Text style={styles.settingsRowSubtitle}>Play the poop game & review toilets</Text>
+              <Text style={styles.settingsRowTitle}>{t('catchThePoop')}</Text>
+              <Text style={styles.settingsRowSubtitle}>{t('playPoopGame')}</Text>
             </View>
             <Text style={styles.settingsRowChevron}>›</Text>
           </Pressable>
@@ -2204,8 +2285,8 @@ const MapScreen: React.FC = () => {
               }}
             >
               <View style={styles.settingsRowText}>
-                <Text style={styles.settingsRowTitle}>Admin</Text>
-                <Text style={styles.settingsRowSubtitle}>Analytics & moderation</Text>
+                <Text style={styles.settingsRowTitle}>{t('admin')}</Text>
+                <Text style={styles.settingsRowSubtitle}>{t('analyticsModeration')}</Text>
               </View>
               <Text style={styles.settingsRowChevron}>›</Text>
             </Pressable>
@@ -2229,14 +2310,56 @@ const MapScreen: React.FC = () => {
             />
           </View>
 
+          {__DEV__ && (
+            <View style={styles.settingsRow}>
+              <View style={styles.settingsRowText}>
+                <Text style={styles.settingsRowTitle}>Simulate China location (dev)</Text>
+                <Text style={styles.settingsRowSubtitle}>Spoof to Beijing to test Gaode map & POI</Text>
+              </View>
+              <Switch
+                value={simulateChinaLocation}
+                onValueChange={(next) => {
+                  setSimulateChinaLocation(next);
+                }}
+              />
+            </View>
+          )}
+
           <View style={styles.settingsDivider} />
 
-          <Text style={styles.settingsSectionTitle}>Filters</Text>
+          <Text style={styles.settingsSectionTitle}>{t('language')}</Text>
+          <View style={styles.settingsRow}>
+            <View style={styles.settingsRowText}>
+              <Text style={styles.settingsRowTitle}>{locale === 'en' ? t('english') : t('mandarin')}</Text>
+              <Text style={styles.settingsRowSubtitle}>
+                {locale === 'en' ? t('switchToZh') : t('switchToEn')}
+              </Text>
+            </View>
+          </View>
+          <View style={styles.settingsChipsRow}>
+            <Pressable
+              style={[styles.settingsChip, locale === 'en' && styles.settingsChipActive]}
+              onPress={() => setLocale('en')}
+            >
+              <Text style={[styles.settingsChipText, locale === 'en' && styles.settingsChipTextActive]}>EN</Text>
+            </Pressable>
+            <Pressable
+              style={[styles.settingsChip, locale === 'zh' && styles.settingsChipActive]}
+              onPress={() => setLocale('zh')}
+            >
+              <Text style={[styles.settingsChipText, locale === 'zh' && styles.settingsChipTextActive]}>中文</Text>
+            </Pressable>
+          </View>
+          <Text style={styles.settingsHint}>{t('mapLanguageHint')}</Text>
+
+          <View style={styles.settingsDivider} />
+
+          <Text style={styles.settingsSectionTitle}>{t('filters')}</Text>
 
           <View style={styles.settingsRow}>
             <View style={styles.settingsRowText}>
-              <Text style={styles.settingsRowTitle}>Wheelchair accessible only</Text>
-              <Text style={styles.settingsRowSubtitle}>Show ♿ toilets only.</Text>
+              <Text style={styles.settingsRowTitle}>{t('wheelchairAccessibleOnly')}</Text>
+              <Text style={styles.settingsRowSubtitle}>{t('showWheelchairToilets')}</Text>
             </View>
             <Switch
               value={filterWheelchairOnly}
@@ -2352,19 +2475,19 @@ const MapScreen: React.FC = () => {
         <Pressable style={styles.hintBackdrop} onPress={() => setCollectionModalOpen(false)} />
         <View style={[styles.hintSheet, { paddingBottom: Math.max(insets.bottom, 16) }]}>
           <View style={styles.hintHeaderRow}>
-            <Text style={styles.hintTitle}>Lists</Text>
+            <Text style={styles.hintTitle}>{t('lists')}</Text>
             <Pressable style={styles.hintClose} onPress={() => setCollectionModalOpen(false)}>
               <Text style={styles.hintCloseText}>✕</Text>
             </Pressable>
           </View>
 
           <Text style={styles.collectionsSubtitle}>
-            {collectionModalToilet ? `Add “${collectionModalToilet.name}” to:` : 'Your lists'}
+            {collectionModalToilet ? `${t('addToCollection')} "${collectionModalToilet.name}"` : t('yourLists')}
           </Text>
 
           <ScrollView style={{ maxHeight: 240 }} contentContainerStyle={{ paddingBottom: 10 }}>
             {collections.length === 0 ? (
-              <Text style={styles.arrivalHintsEmpty}>No lists yet. Create one below.</Text>
+              <Text style={styles.arrivalHintsEmpty}>{t('noListsYet')}</Text>
             ) : (
               collections.map((c) => {
                 const checked = !!collectionModalToilet && (c.toilets ?? []).some((t) => t.id === collectionModalToilet.id);
@@ -2390,7 +2513,7 @@ const MapScreen: React.FC = () => {
               style={styles.collectionCreateInput}
               value={newCollectionName}
               onChangeText={setNewCollectionName}
-              placeholder="New list name"
+              placeholder={t('newListName')}
             />
             <Pressable
               style={({ pressed }) => [styles.collectionCreateButton, pressed && styles.hintSubmitPressed]}
@@ -2402,11 +2525,20 @@ const MapScreen: React.FC = () => {
                 }
               }}
             >
-              <Text style={styles.collectionCreateButtonText}>Create</Text>
+              <Text style={styles.collectionCreateButtonText}>{t('create')}</Text>
             </Pressable>
           </View>
         </View>
       </Modal>
+
+      {/* Map provider badge - shows Amap or Google */}
+      {viewMode === 'map' && (
+        <View style={[styles.mapProviderBadge, { bottom: zoomControlsBottom + 52, left: 12 }]}>
+          <Text style={styles.mapProviderBadgeText}>
+            {mapProvider === 'amap' ? '高德 Amap' : 'Google'}
+          </Text>
+        </View>
+      )}
 
       {/* Zoom controls (explicit +/- buttons) - hidden when POI card is open */}
       {viewMode === 'map' && !tappedLocation && !selectedToilet && (
@@ -2436,30 +2568,30 @@ const MapScreen: React.FC = () => {
       {viewMode === 'map' && toiletsWithReviews.length > 0 && !tappedLocation && !selectedToilet && !navigationActive && (
         <View style={[styles.reviewStrip, { bottom: Math.max(insets.bottom, 20) + 124 }]}>
           <View style={styles.reviewStripHeader}>
-            <Text style={styles.reviewStripTitle}>Ploop reviews nearby</Text>
+            <Text style={styles.reviewStripTitle}>{t('ploopReviewsNearby')}</Text>
             {routePolyline && (
               <Pressable style={styles.clearRoutePill} onPress={clearDirections}>
                 <Text style={styles.clearRoutePillText}>
-                  Clear route{routeMeta?.durationText ? ` • ${routeMeta.durationText}` : ''}
+                  {t('clearRoute')}{routeMeta?.durationText ? ` • ${routeMeta.durationText}` : ''}
                 </Text>
               </Pressable>
             )}
           </View>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            {toiletsWithReviews.slice(0, 12).map((t) => {
-              const thumb = normalizePhotoUrl(t.photos?.[0]?.photo_url);
+            {toiletsWithReviews.slice(0, 12).map((toilet) => {
+              const thumb = normalizePhotoUrl(toilet.photos?.[0]?.photo_url);
               return (
                 <Pressable
-                  key={t.id}
+                  key={toilet.id}
                   style={({ pressed }) => [styles.reviewChip, pressed && styles.reviewChipPressed]}
                   onPress={() => {
-                    setSelectedToilet(t);
+                    setSelectedToilet(toilet);
                     setTappedLocation(null);
                     if (mapRef.current) {
                       mapRef.current.animateToRegion(
                         {
-                          latitude: t.latitude,
-                          longitude: t.longitude,
+                          latitude: toilet.latitude,
+                          longitude: toilet.longitude,
                           latitudeDelta: 0.006,
                           longitudeDelta: 0.006,
                         },
@@ -2477,11 +2609,11 @@ const MapScreen: React.FC = () => {
                   )}
                   <View style={styles.reviewChipTextWrap}>
                     <Text style={styles.reviewChipTitle} numberOfLines={2}>
-                      {parseToiletNameAndBadges(t.name).displayName || t.name}
+                      {parseToiletNameAndBadges(toilet.name).displayName || toilet.name}
                     </Text>
                     <Text style={styles.reviewChipSubtitle} numberOfLines={1}>
-                      {t.total_reviews} review{t.total_reviews === 1 ? '' : 's'}
-                      {t.distance ? ` • ${t.distance}m` : ''}
+                      {toilet.total_reviews} {toilet.total_reviews === 1 ? t('review') : t('reviews')}
+                      {toilet.distance ? ` • ${toilet.distance}m` : ''}
                     </Text>
                   </View>
                 </Pressable>
@@ -2542,58 +2674,67 @@ const MapScreen: React.FC = () => {
             {!!selectedToilet.active_reports && (
               <View style={[styles.pill, styles.pillWarning]}>
                 <Text style={[styles.pillText, styles.pillTextWarning]}>
-                  {selectedToilet.active_reports} report{selectedToilet.active_reports === 1 ? '' : 's'}
+                  {selectedToilet.active_reports} {selectedToilet.active_reports === 1 ? t('reportCount') : t('reportsCount')}
                 </Text>
+              </View>
+            )}
+            {selectedToilet.last_serviced_at && isRecentlyServiced(selectedToilet.last_serviced_at) && (
+              <View style={[styles.pill, styles.pillServiced]}>
+                <Text style={styles.pillText}>✨ {t('recentlyServiced')}</Text>
               </View>
             )}
             {favoritesLoaded && isFavorite(selectedToilet.id) && (
               <View style={[styles.pill, styles.pillFavorite]}>
-                <Text style={[styles.pillText, styles.pillTextFavorite]}>Saved</Text>
+                <Text style={[styles.pillText, styles.pillTextFavorite]}>{t('saved')}</Text>
               </View>
             )}
           </View>
           <View style={styles.scoreContainer}>
             <View style={styles.scoreItem}>
-              <Text style={styles.scoreLabel}>Cleanliness</Text>
+              <Text style={styles.scoreLabel}>{t('cleanliness')}</Text>
               <Text style={styles.scoreValue}>
                 {formatScore(selectedToilet.cleanliness_score)}/5
               </Text>
             </View>
             <View style={styles.scoreItem}>
-              <Text style={styles.scoreLabel}>Smell</Text>
+              <Text style={styles.scoreLabel}>{t('smell')}</Text>
               <Text style={styles.scoreValue}>
                 {formatScore(selectedToilet.smell_score)}/5
               </Text>
             </View>
           </View>
 
+          {(selectedToilet.total_reviews ?? 0) === 0 && (
+            <Text style={styles.importedHintText}>{t('importedNoReviewsHint')}</Text>
+          )}
+
           <View style={styles.amenitiesContainer}>
             {selectedToilet.has_toilet_paper && (
-              <Text style={styles.amenity}>🧻 Toilet Paper</Text>
+              <Text style={styles.amenity}>🧻 {t('toiletPaper')}</Text>
             )}
             {selectedToilet.has_hand_soap && (
-              <Text style={styles.amenity}>🧼 Hand Soap</Text>
+              <Text style={styles.amenity}>🧼 {t('handSoap')}</Text>
             )}
             {selectedToilet.has_baby_changing && (
-              <Text style={styles.amenity}>👶 Baby Changing</Text>
+              <Text style={styles.amenity}>👶 {t('babyChanging')}</Text>
             )}
             {selectedToilet.has_family_room && (
-              <Text style={styles.amenity}>👨‍👩‍👧 Family Room</Text>
+              <Text style={styles.amenity}>👨‍👩‍👧 {t('familyRoom')}</Text>
             )}
             {selectedToilet.has_bidet && (
-              <Text style={styles.amenity}>🚿 Bidet</Text>
+              <Text style={styles.amenity}>🚿 {t('bidet')}</Text>
             )}
             {selectedToilet.has_seat_warmer && (
-              <Text style={styles.amenity}>🔥 Seat Warmer</Text>
+              <Text style={styles.amenity}>🔥 {t('seatWarmer')}</Text>
             )}
             {selectedToilet.wheelchair_accessible && (
-              <Text style={styles.amenity}>♿ Accessible</Text>
+              <Text style={styles.amenity}>♿ {t('accessible')}</Text>
             )}
           </View>
 
           {selectedToilet.distance && (
             <Text style={styles.distanceText}>
-              {selectedToilet.distance}m away
+              {selectedToilet.distance}{t('metersAway')}
             </Text>
           )}
 
@@ -2608,15 +2749,16 @@ const MapScreen: React.FC = () => {
           )}
 
           <View style={styles.reportRow}>
-            <Text style={styles.reportRowLabel}>Report:</Text>
+            <Text style={styles.reportRowLabel}>{t('report')}:</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.reportRowScroll}>
               {(
                 [
-                  { key: 'busy' as const, label: 'Busy' },
-                  { key: 'gross' as const, label: 'Gross' },
-                  { key: 'closed' as const, label: 'Closed' },
-                  { key: 'out_of_order' as const, label: 'Broken' },
-                  { key: 'no_access' as const, label: 'No access' },
+                  { key: 'busy' as const, label: t('busy') },
+                  { key: 'gross' as const, label: t('gross') },
+                  { key: 'needs_cleaning' as const, label: t('needsCleaning') },
+                  { key: 'closed' as const, label: t('closed') },
+                  { key: 'out_of_order' as const, label: t('broken') },
+                  { key: 'no_access' as const, label: t('noAccess') },
                 ] as const
               ).map((r) => (
                 <Pressable
@@ -2642,7 +2784,7 @@ const MapScreen: React.FC = () => {
                 api.track('directions_started', { dest: 'toilet', toiletId: selectedToilet.id });
               }}
             >
-              <Text style={styles.detailsButtonText}>Open in Maps</Text>
+              <Text style={styles.detailsButtonText}>{t('openInMaps')}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -2653,7 +2795,7 @@ const MapScreen: React.FC = () => {
                 api.track('toilet_details_opened', { toiletId: selectedToilet.id });
               }}
             >
-              <Text style={styles.detailsButtonText}>View Details</Text>
+              <Text style={styles.detailsButtonText}>{t('viewDetails')}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -2672,7 +2814,7 @@ const MapScreen: React.FC = () => {
               ]}
               onPress={() => setListTab('nearby')}
             >
-              <Text style={[styles.listTabText, listTab === 'nearby' && styles.listTabTextActive]}>Nearby</Text>
+              <Text style={[styles.listTabText, listTab === 'nearby' && styles.listTabTextActive]}>{t('nearby')}</Text>
             </Pressable>
             <Pressable
               style={({ pressed }) => [
@@ -2690,7 +2832,7 @@ const MapScreen: React.FC = () => {
                 }
               }}
             >
-              <Text style={[styles.listTabText, listTab === 'saved' && styles.listTabTextActive]}>Saved</Text>
+              <Text style={[styles.listTabText, listTab === 'saved' && styles.listTabTextActive]}>{t('saved')}</Text>
             </Pressable>
             <Pressable
               style={({ pressed }) => [
@@ -2703,13 +2845,13 @@ const MapScreen: React.FC = () => {
                 setActiveCollectionId(null);
               }}
             >
-              <Text style={[styles.listTabText, listTab === 'lists' && styles.listTabTextActive]}>Lists</Text>
+              <Text style={[styles.listTabText, listTab === 'lists' && styles.listTabTextActive]}>{t('lists')}</Text>
             </Pressable>
           </View>
           {listTab === 'lists' && activeCollection && (
             <View style={styles.listDetailHeader}>
               <Pressable style={styles.listDetailBack} onPress={() => setActiveCollectionId(null)}>
-                <Text style={styles.listDetailBackText}>← Lists</Text>
+                <Text style={styles.listDetailBackText}>← {t('lists')}</Text>
               </Pressable>
               <Text style={styles.listDetailTitle} numberOfLines={1}>
                 {activeCollection.name}
@@ -2801,10 +2943,10 @@ const MapScreen: React.FC = () => {
               <View style={styles.listEmpty}>
                 <Text style={styles.listEmptyText}>
                   {listTab === 'saved'
-                    ? 'No saved toilets yet'
+                    ? t('noSavedToilets')
                     : listTab === 'lists'
-                      ? (collectionsLoaded ? 'No lists yet' : 'Loading lists…')
-                      : 'No toilets found nearby'}
+                      ? (collectionsLoaded ? t('noListsYetShort') : t('loadingLists'))
+                      : t('noToiletsNearby')}
                 </Text>
               </View>
             }
@@ -2815,7 +2957,7 @@ const MapScreen: React.FC = () => {
                   onPress={() => setNearbyListLimit((n) => n + 10)}
                 >
                   <Text style={styles.showMoreButtonText}>
-                    Show more ({nearbyToiletsSorted.length - nearbyListLimit} more)
+                    {t('showMore')} ({nearbyToiletsSorted.length - nearbyListLimit} {t('moreCount')})
                   </Text>
                 </Pressable>
               ) : null
@@ -2837,7 +2979,7 @@ const MapScreen: React.FC = () => {
           onPress={() => setViewMode('map')}
         >
           <Text style={[styles.viewModeButtonText, viewMode === 'map' && styles.viewModeButtonTextActive]}>
-            🗺️ Map
+            🗺️ {t('map')}
           </Text>
         </Pressable>
         <Pressable
@@ -2849,7 +2991,7 @@ const MapScreen: React.FC = () => {
           onPress={() => setViewMode('list')}
         >
           <Text style={[styles.viewModeButtonText, viewMode === 'list' && styles.viewModeButtonTextActive]}>
-            📋 List
+            📋 {t('list')}
           </Text>
         </Pressable>
       </View>
@@ -2861,7 +3003,7 @@ const MapScreen: React.FC = () => {
         ]}
         onPress={() => (navigation as any).navigate('PoopGame')}
       >
-        <Text style={styles.alreadyPloopingBarText}>💩 Already Plooping</Text>
+        <Text style={styles.alreadyPloopingBarText}>💩 {t('alreadyPlooping')}</Text>
       </Pressable>
       </>
       )}
@@ -2877,10 +3019,10 @@ const MapScreen: React.FC = () => {
               <Text style={styles.bottomSheetTitle}>
                 {tappedLocation.place?.name || 
                  (tappedLocation.location?.address && !tappedLocation.location.address.includes('Location at') && !tappedLocation.location.address.match(/^-?\d+\.?\d*,\s*-?\d+\.?\d*$/) ? tappedLocation.location.address : null) ||
-                 'Location'}
+                 t('location')}
               </Text>
               {loadingLocationDetails && (
-                <Text style={styles.bottomSheetAddress}>Loading details…</Text>
+                <Text style={styles.bottomSheetAddress}>{t('loadingDetails')}</Text>
               )}
               {!loadingLocationDetails && tappedLocation.place?.address && (
                 <Text style={styles.bottomSheetAddress}>{tappedLocation.place.address}</Text>
@@ -2890,7 +3032,7 @@ const MapScreen: React.FC = () => {
               )}
               {!loadingLocationDetails && !tappedLocation.place?.address && (!tappedLocation.location?.address || tappedLocation.location.address.includes('Location at') || tappedLocation.location.address.match(/^-?\d+\.?\d*,\s*-?\d+\.?\d*$/)) && (
                 <Text style={[styles.bottomSheetAddress, { color: '#94a3b8', fontStyle: 'italic' }]}>
-                  Details unavailable — you can still add a review or get directions
+                  {t('detailsUnavailable')}
                 </Text>
               )}
             </View>
@@ -2901,7 +3043,7 @@ const MapScreen: React.FC = () => {
                   try {
                     const place = tappedLocation.place;
                     const location = tappedLocation.location;
-                    const name = place?.name || location?.address || 'Location';
+                    const name = place?.name || location?.address || t('location');
                     const address = place?.address || location?.address || '';
                     await Share.share({
                       message: `Check out ${name} at ${address}`,
@@ -2972,11 +3114,11 @@ const MapScreen: React.FC = () => {
                 openInMapsWithChoice(
                   tappedLocation.latitude,
                   tappedLocation.longitude,
-                  tappedLocation.place?.name || tappedLocation.location?.address || 'Destination'
+                  tappedLocation.place?.name || tappedLocation.location?.address || t('destination')
                 );
               }}
             >
-              <Text style={styles.bottomSheetActionButtonText}>Open in Maps</Text>
+              <Text style={styles.bottomSheetActionButtonText}>{t('openInMaps')}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.bottomSheetActionButton, styles.bottomSheetActionButtonSecondary]}
@@ -2991,7 +3133,7 @@ const MapScreen: React.FC = () => {
                 setTappedLocation(null);
               }}
             >
-              <Text style={[styles.bottomSheetActionButtonText, styles.bottomSheetActionButtonTextSecondary]}>Review</Text>
+              <Text style={[styles.bottomSheetActionButtonText, styles.bottomSheetActionButtonTextSecondary]}>{t('reviewButton')}</Text>
             </TouchableOpacity>
           </View>
 
@@ -3016,7 +3158,7 @@ const MapScreen: React.FC = () => {
       {loadingLocationDetails && !tappedLocation && (
         <View style={styles.loadingOverlay}>
           <ActivityIndicator size="large" color="#fff" />
-          <Text style={styles.loadingOverlayText}>Loading location...</Text>
+          <Text style={styles.loadingOverlayText}>{t('loadingLocation')}</Text>
         </View>
       )}
 
@@ -3381,6 +3523,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#ECFDF5',
     borderColor: '#A7F3D0',
   },
+  pillServiced: {
+    backgroundColor: '#FEF3C7',
+    borderColor: '#FDE68A',
+  },
   pillTextFavorite: {
     color: '#065F46',
   },
@@ -3391,6 +3537,16 @@ const styles = StyleSheet.create({
   },
   scoreItem: {
     flex: 1,
+  },
+  importedHintText: {
+    fontSize: 13,
+    color: '#92400e',
+    lineHeight: 18,
+    marginBottom: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    backgroundColor: '#fef3c7',
+    borderRadius: 8,
   },
   scoreLabel: {
     fontSize: 12,
@@ -3657,6 +3813,24 @@ const styles = StyleSheet.create({
         elevation: 5,
       },
     }),
+  },
+  mapProviderBadge: {
+    position: 'absolute',
+    zIndex: 29,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    borderRadius: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 3,
+    elevation: 4,
+  },
+  mapProviderBadgeText: {
+    fontSize: 12,
+    color: '#555',
+    fontWeight: '600',
   },
   zoomControls: {
     position: 'absolute',
@@ -4090,6 +4264,10 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#6B7280',
   },
+  settingsRowSubtitleMuted: {
+    color: '#9CA3AF',
+    fontStyle: 'italic',
+  },
   settingsDivider: {
     height: 1,
     backgroundColor: '#F3F4F6',
@@ -4122,7 +4300,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
-    paddingBottom: 14,
+    paddingBottom: 8,
+  },
+  settingsHint: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    marginBottom: 14,
+    lineHeight: 16,
   },
   settingsChip: {
     paddingHorizontal: 12,

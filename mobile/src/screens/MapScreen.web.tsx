@@ -6,8 +6,8 @@ import { useNavigation } from '@react-navigation/native';
 import { useJsApiLoader, GoogleMap, Marker } from '@react-google-maps/api';
 import { api, Toilet } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { useMapPreload } from '../context/MapPreloadContext';
 import { openInMapsWithChoice } from '../utils/maps';
-import { playPloopSoundIfEnabled } from '../utils/ploopSound';
 
 type Coords = { latitude: number; longitude: number };
 
@@ -21,6 +21,7 @@ const MAP_CONTAINER_STYLE = { width: '100%', height: '100%', minHeight: MAP_WRAP
 export default function MapScreenWeb() {
   const navigation = useNavigation();
   const { user } = useAuth();
+  const preload = useMapPreload();
   const [coords, setCoords] = useState<Coords | null>(DEFAULT_COORDS);
   const [usedDefaultLocation, setUsedDefaultLocation] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
@@ -137,16 +138,29 @@ export default function MapScreenWeb() {
     }
   }, [fetchNearby]);
 
+  // Use preloaded data from AppLoadingGate when available
+  useEffect(() => {
+    if (preload) {
+      const c = {
+        latitude: preload.location.coords.latitude,
+        longitude: preload.location.coords.longitude,
+      };
+      setCoords(c);
+      setToilets(preload.toilets);
+      setLoading(false);
+      setUsedDefaultLocation(false);
+      setLocationError(null);
+    }
+  }, [preload]);
+
   // Fetch toilets for default coords immediately so map shows something fast (don't wait for location)
   useEffect(() => {
+    if (preload) return;
     fetchNearby(DEFAULT_COORDS).catch(() => {});
-  }, [fetchNearby]);
+  }, [fetchNearby, preload]);
 
   useEffect(() => {
-    playPloopSoundIfEnabled();
-  }, []);
-
-  useEffect(() => {
+    if (preload) return;
     let cancelled = false;
     (async () => {
       try {

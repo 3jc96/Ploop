@@ -13,13 +13,13 @@ import {
   ActivityIndicator,
   Alert,
   ScrollView,
-  TextInput,
   Platform,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import * as Location from 'expo-location';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 import { hapticSuccess } from '../utils/engagement';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -29,9 +29,9 @@ const GAME_HEIGHT = 480;
 const TOILET_WIDTH = 80;
 
 /** Strip email from display_name (e.g. "Joel (a@b.com)" → "Joel") for scoreboard privacy. */
-function displayNameForScoreboard(name: string | null | undefined): string {
+function displayNameForScoreboard(name: string | null | undefined, anonymousLabel: string): string {
   const n = (name || '').trim();
-  if (!n) return 'Anonymous';
+  if (!n) return anonymousLabel;
   const parenIdx = n.indexOf(' (');
   if (parenIdx > 0 && n.endsWith(')')) return n.slice(0, parenIdx).trim();
   return n;
@@ -58,6 +58,7 @@ export default function PoopGameScreen() {
   const navigation = useNavigation();
   const route = useRoute();
   const { user } = useAuth();
+  const { t } = useLanguage();
   const [gameState, setGameState] = useState<GameState>('idle');
   const [score, setScore] = useState(0);
   const [misses, setMisses] = useState(0);
@@ -66,7 +67,6 @@ export default function PoopGameScreen() {
   const [leaderboard, setLeaderboard] = useState<Array<{ score: number; display_name: string }>>([]);
   const [submitting, setSubmitting] = useState(false);
   const [loadingLeaderboard, setLoadingLeaderboard] = useState(false);
-  const [scoreName, setScoreName] = useState('');
   const [scoreSubmitted, setScoreSubmitted] = useState(false);
   const pendingScoreRef = useRef<number | null>(null);
 
@@ -99,7 +99,7 @@ export default function PoopGameScreen() {
   const pendingScore = (route.params as any)?.pendingScore as number | undefined;
   useEffect(() => {
     if (user && typeof pendingScore === 'number' && pendingScore >= 0) {
-      submitScore(pendingScore, user.display_name || 'Anonymous');
+      submitScore(pendingScore, user.display_name || t('anonymous'));
       (navigation as any).setParams({ pendingScore: undefined });
     }
   }, [user, pendingScore, submitScore, navigation]);
@@ -125,17 +125,17 @@ export default function PoopGameScreen() {
       loadLeaderboard();
     } catch (e: any) {
       if (__DEV__) console.error('[PoopGame] Failed to submit score:', e?.response?.data || e?.message);
-      const msg = e?.response?.data?.error || e?.response?.status === 409
-        ? (e?.response?.data?.error ?? 'That name is already on the leaderboard. Choose a different name.')
-        : 'Your score was ' + finalScore + '. Enter your name below or sign in to save it.';
+      const msg = e?.response?.status === 409
+        ? t('nameOnLeaderboard')
+        : (e?.response?.data?.error || t('scoreEnterName').replace('{score}', String(finalScore)));
       Alert.alert(
-        e?.response?.status === 409 ? 'Name already taken' : 'Could not reach server to record the score',
+        e?.response?.status === 409 ? t('nameAlreadyTaken') : t('couldNotReachServer'),
         msg
       );
     } finally {
       setSubmitting(false);
     }
-  }, [loadLeaderboard]);
+  }, [loadLeaderboard, t]);
 
   const endGame = useCallback((finalScore: number) => {
     if (gameOverRef.current) return;
@@ -153,7 +153,7 @@ export default function PoopGameScreen() {
     }
 
     if (user) {
-      submitScore(finalScore, user.display_name || 'Anonymous');
+      submitScore(finalScore, user.display_name || t('anonymous'));
     }
   }, [user, submitScore]);
 
@@ -161,7 +161,7 @@ export default function PoopGameScreen() {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('Location needed', 'Enable location to review a toilet near you.');
+        Alert.alert(t('locationNeeded'), t('enableLocationToReview'));
         return;
       }
       const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
@@ -188,7 +188,7 @@ export default function PoopGameScreen() {
         });
       }
     } catch (e) {
-      Alert.alert('Error', 'Could not find a toilet near you. Try again later.');
+      Alert.alert(t('error'), t('couldNotFindToilet'));
     }
   }, [navigation]);
 
@@ -282,13 +282,26 @@ export default function PoopGameScreen() {
   if (gameState === 'idle') {
     return (
       <View style={styles.container}>
-        <Text style={styles.title}>💩 Catch the Poop</Text>
-        <Text style={styles.subtitle}>Drag the toilet to catch falling poop. Don't miss 3!</Text>
-        <TouchableOpacity style={styles.playBtn} onPress={startGame}>
-          <Text style={styles.playBtnText}>Play</Text>
-        </TouchableOpacity>
+        <Text style={styles.title}>{t('catchThePoop')}</Text>
+        <Text style={styles.subtitle}>{t('dragToCatch')}</Text>
+        {user ? (
+          <TouchableOpacity style={styles.playBtn} onPress={startGame}>
+            <Text style={styles.playBtnText}>{t('play')}</Text>
+          </TouchableOpacity>
+        ) : (
+          <>
+            <Text style={styles.loginPrompt}>{t('signInToPlay')}</Text>
+            <TouchableOpacity
+              style={[styles.playBtn, styles.signInBtn]}
+              onPress={() => (navigation as any).navigate('Login', { returnTo: 'PoopGame' })}
+            >
+              <Text style={styles.playBtnText}>{t('signInToPlayScores')}</Text>
+            </TouchableOpacity>
+          </>
+        )}
+        <Text style={styles.prizePromo}>{t('prizePromo')}</Text>
         <View style={styles.leaderboardSection}>
-          <Text style={styles.leaderboardTitle}>Top scores</Text>
+          <Text style={styles.leaderboardTitle}>{t('topScores')}</Text>
           {loadingLeaderboard ? (
             <ActivityIndicator size="small" />
           ) : (
@@ -296,7 +309,7 @@ export default function PoopGameScreen() {
               {leaderboard.slice(0, 5).map((s, i) => (
                 <View key={i} style={styles.leaderboardRow}>
                   <Text style={styles.rank}>#{i + 1}</Text>
-                  <Text style={styles.leaderboardName}>{displayNameForScoreboard(s.display_name)}</Text>
+                  <Text style={styles.leaderboardName}>{displayNameForScoreboard(s.display_name, t('anonymous'))}</Text>
                   <Text style={styles.leaderboardScore}>{s.score}</Text>
                 </View>
               ))}
@@ -311,8 +324,8 @@ export default function PoopGameScreen() {
     return (
       <View style={styles.container}>
         <View style={styles.hud}>
-          <Text style={styles.hudText}>Score: {score}</Text>
-          <Text style={styles.hudText}>Misses: {misses}/{MAX_MISSES}</Text>
+          <Text style={styles.hudText}>{t('scoreLabel')}: {score}</Text>
+          <Text style={styles.hudText}>{t('missesLabel')}: {misses}/{MAX_MISSES}</Text>
         </View>
         <View style={[styles.gameArea, { width: GAME_WIDTH, height: GAME_HEIGHT }]}>
           {poops.map((p) => (
@@ -351,55 +364,29 @@ export default function PoopGameScreen() {
   }
 
   const finalScore = lastGameScoreRef.current || score;
-  const handleSaveWithName = () => {
-    const name = scoreName.trim() || 'Anonymous';
-    submitScore(finalScore, name.slice(0, 128));
-  };
 
-  // Game over
+  // Game over (user is always logged in since login required to play)
   return (
     <View style={styles.container}>
-      <Text style={styles.gameOverTitle}>Game Over!</Text>
-      <Text style={styles.finalScore}>Score: {finalScore}</Text>
+      <Text style={styles.gameOverTitle}>{t('gameOver')}</Text>
+      <Text style={styles.finalScore}>{t('score')}: {finalScore}</Text>
       {submitting && <ActivityIndicator size="small" style={{ marginVertical: 8 }} />}
-      {scoreSubmitted && <Text style={styles.scoreSavedText}>Score recorded!</Text>}
-      {!scoreSubmitted && (
-        <View style={styles.scoreForm}>
-          <Text style={styles.scoreFormTitle}>Save your score</Text>
-          <TextInput
-            style={styles.scoreInput}
-            placeholder="Name"
-            value={scoreName}
-            onChangeText={setScoreName}
-            autoCapitalize="words"
-          />
-          <TouchableOpacity
-            style={[styles.playBtn, styles.saveScoreBtn]}
-            onPress={handleSaveWithName}
-            disabled={submitting}
-          >
-            <Text style={styles.playBtnText}>Save score</Text>
-          </TouchableOpacity>
-          <Text style={styles.orSignIn}>Or create an account to record scores:</Text>
-          <TouchableOpacity
-            style={[styles.playBtn, styles.signInBtn]}
-            onPress={() => (navigation as any).navigate('Login', { returnTo: 'PoopGame', pendingScore: finalScore })}
-          >
-            <Text style={styles.playBtnText}>Sign in with Google, Apple, or Email</Text>
-          </TouchableOpacity>
-        </View>
+      {scoreSubmitted && <Text style={styles.scoreSavedText}>{t('scoreRecorded')}</Text>}
+      {!scoreSubmitted && !submitting && (
+        <Text style={styles.loginPrompt}>{t('couldntSaveScore')}</Text>
       )}
       <TouchableOpacity style={styles.playBtn} onPress={startGame} disabled={submitting}>
-        <Text style={styles.playBtnText}>Play Again</Text>
+        <Text style={styles.playBtnText}>{t('playAgain')}</Text>
       </TouchableOpacity>
       <TouchableOpacity
         style={[styles.playBtn, styles.reviewBtn]}
         onPress={promptReviewByLocation}
       >
-        <Text style={styles.playBtnText}>Review a toilet near me</Text>
+        <Text style={styles.playBtnText}>{t('reviewToiletNearMe')}</Text>
       </TouchableOpacity>
+      <Text style={styles.prizePromo}>{t('prizePromo')}</Text>
       <View style={styles.leaderboardSection}>
-        <Text style={styles.leaderboardTitle}>Top scores</Text>
+        <Text style={styles.leaderboardTitle}>{t('topScores')}</Text>
         {loadingLeaderboard ? (
           <ActivityIndicator size="small" />
         ) : (
@@ -407,7 +394,7 @@ export default function PoopGameScreen() {
             {leaderboard.slice(0, 5).map((s, i) => (
               <View key={i} style={styles.leaderboardRow}>
                 <Text style={styles.rank}>#{i + 1}</Text>
-                <Text style={styles.leaderboardName}>{displayNameForScoreboard(s.display_name)}</Text>
+                <Text style={styles.leaderboardName}>{displayNameForScoreboard(s.display_name, t('anonymous'))}</Text>
                 <Text style={styles.leaderboardScore}>{s.score}</Text>
               </View>
             ))}
@@ -437,6 +424,12 @@ const styles = StyleSheet.create({
     color: '#666',
     textAlign: 'center',
     marginBottom: 24,
+  },
+  loginPrompt: {
+    fontSize: 15,
+    color: '#64748b',
+    textAlign: 'center',
+    marginBottom: 16,
   },
   playBtn: {
     backgroundColor: '#6366f1',
@@ -543,10 +536,18 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginBottom: 24,
   },
+  prizePromo: {
+    fontSize: 13,
+    color: '#64748b',
+    textAlign: 'center',
+    marginTop: 16,
+    marginHorizontal: 16,
+    lineHeight: 20,
+  },
   leaderboardSection: {
     width: '100%',
     maxWidth: 320,
-    marginTop: 16,
+    marginTop: 12,
   },
   leaderboardTitle: {
     fontSize: 18,

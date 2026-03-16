@@ -17,6 +17,7 @@ import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getErrorMessage, getReviewSuccessMessage, hapticSuccess } from '../utils/engagement';
+import { playFlushSound } from '../utils/flushSound';
 
 interface LocationReviewParams {
   latitude: number;
@@ -168,6 +169,7 @@ const LocationReviewScreen: React.FC = () => {
       const { reviews } = await api.getLocalMetrics();
       const message = getReviewSuccessMessage(reviews);
       await hapticSuccess();
+      playFlushSound();
 
       Alert.alert('Success', message, [
         {

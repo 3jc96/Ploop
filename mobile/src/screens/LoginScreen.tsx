@@ -15,6 +15,7 @@ import { useNavigation, useRoute, CommonActions } from '@react-navigation/native
 import Constants from 'expo-constants';
 import * as AuthSession from 'expo-auth-session';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 import { getErrorMessage } from '../utils/engagement';
 
 // Use a stable redirect URI so Google Console only needs 2 entries:
@@ -47,6 +48,7 @@ export default function LoginScreen() {
   const returnTo = params.returnTo;
   const pendingScore = params.pendingScore;
   const { user, loading: authLoading, loginWithGoogle, loginWithApple, loginWithEmail, registerWithEmail, logout, error, clearError } = useAuth();
+  const { t } = useLanguage();
   const [googleLoading, setGoogleLoading] = useState(false);
   const [appleLoading, setAppleLoading] = useState(false);
   const [emailLoading, setEmailLoading] = useState(false);
@@ -263,7 +265,7 @@ export default function LoginScreen() {
             style={styles.backButton}
             onPress={() => (navigation as any).dispatch(CommonActions.reset({ index: 0, routes: [{ name: 'Map' }] }))}
           >
-            <Text style={styles.backButtonText}>Continue to app</Text>
+            <Text style={styles.backButtonText}>{t('continueToApp')}</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -274,8 +276,8 @@ export default function LoginScreen() {
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
       <View style={styles.card}>
-        <Text style={styles.title}>Create account or sign in</Text>
-        <Text style={styles.subtitle}>Use Google, Apple, or email to record your scores.</Text>
+        <Text style={styles.title}>{t('createAccountOrSignIn')}</Text>
+        <Text style={styles.subtitle}>{t('useGoogleAppleEmail')}</Text>
 
         <View style={styles.emailForm}>
           <TouchableOpacity
@@ -283,15 +285,15 @@ export default function LoginScreen() {
             onPress={() => setEmailMode((m) => (m === 'signin' ? 'register' : 'signin'))}
           >
             <Text style={[styles.emailModeText, emailMode === 'signin' && styles.emailModeTextActive]}>
-              Sign in
+              {t('signIn')}
             </Text>
             <Text style={[styles.emailModeText, emailMode === 'register' && styles.emailModeTextActive]}>
-              Create account
+              {t('createAccount')}
             </Text>
           </TouchableOpacity>
           <TextInput
             style={styles.emailInput}
-            placeholder="Email"
+            placeholder={t('email')}
             value={email}
             onChangeText={setEmail}
             keyboardType="email-address"
@@ -301,7 +303,7 @@ export default function LoginScreen() {
           {emailMode === 'register' && (
             <TextInput
               style={styles.emailInput}
-              placeholder="Name (optional)"
+              placeholder={t('nameOptional')}
               value={displayName}
               onChangeText={setDisplayName}
               autoCapitalize="words"
@@ -309,7 +311,7 @@ export default function LoginScreen() {
           )}
           <TextInput
             style={styles.emailInput}
-            placeholder={emailMode === 'register' ? 'Password (min 8 chars)' : 'Password'}
+            placeholder={emailMode === 'register' ? t('passwordMin8') : t('password')}
             value={password}
             onChangeText={setPassword}
             secureTextEntry
@@ -323,13 +325,13 @@ export default function LoginScreen() {
               <ActivityIndicator color="#fff" />
             ) : (
               <Text style={styles.emailSubmitText}>
-                {emailMode === 'register' ? 'Create account' : 'Sign in with email'}
+                {emailMode === 'register' ? t('createAccount') : t('signInWithEmail')}
               </Text>
             )}
           </TouchableOpacity>
         </View>
 
-        <Text style={styles.orDivider}>— or —</Text>
+        <Text style={styles.orDivider}>{t('orDivider')}</Text>
 
 
         {__DEV__ && redirectUri ? (
@@ -346,7 +348,7 @@ export default function LoginScreen() {
           {googleLoading ? (
             <ActivityIndicator color="#333" />
           ) : (
-            <Text style={styles.googleButtonText}>Sign in with Google</Text>
+            <Text style={styles.googleButtonText}>{t('signInWithGoogle')}</Text>
           )}
         </TouchableOpacity>
 

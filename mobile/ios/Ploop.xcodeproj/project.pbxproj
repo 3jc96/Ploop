@@ -9,24 +9,24 @@
 /* Begin PBXBuildFile section */
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
 		3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */; };
-		69DA7991309ACEB5D2CFB006 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 5524C6975DE604DA481324F3 /* PrivacyInfo.xcprivacy */; };
-		846128AE4A3FD04CEE224DE5 /* libPods-Ploop.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 0341C302FC4DB24A0D72FCAC /* libPods-Ploop.a */; };
-		91001A3D4A7B9605488E1EDB /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F9ABBC6EBFD54B0774B38F6 /* ExpoModulesProvider.swift */; };
+		52120196A3A2305588D17C1D /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 9A6CB70E332F71A65B67EAEA /* PrivacyInfo.xcprivacy */; };
+		B33F7360E795FCBA12A11CB1 /* libPods-Ploop.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 99277DCF1A8DA547419ABDE7 /* libPods-Ploop.a */; };
 		BB2F792D24A3F905000567C9 /* Expo.plist in Resources */ = {isa = PBXBuildFile; fileRef = BB2F792C24A3F905000567C9 /* Expo.plist */; };
+		CE38718305A948B319C38FB7 /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91316042F48E60B536A89D05 /* ExpoModulesProvider.swift */; };
 		F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F11748412D0307B40044C1D9 /* AppDelegate.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		0341C302FC4DB24A0D72FCAC /* libPods-Ploop.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-Ploop.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		13B07F961A680F5B00A75B9A /* Ploop.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Ploop.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = Ploop/Images.xcassets; sourceTree = "<group>"; };
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = Ploop/Info.plist; sourceTree = "<group>"; };
-		1F9ABBC6EBFD54B0774B38F6 /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-Ploop/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
-		280818E9210B1562A508630A /* Pods-Ploop.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Ploop.debug.xcconfig"; path = "Target Support Files/Pods-Ploop/Pods-Ploop.debug.xcconfig"; sourceTree = "<group>"; };
-		45685CE9CE7D14553636F627 /* Pods-Ploop.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Ploop.release.xcconfig"; path = "Target Support Files/Pods-Ploop/Pods-Ploop.release.xcconfig"; sourceTree = "<group>"; };
-		5524C6975DE604DA481324F3 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xml; name = PrivacyInfo.xcprivacy; path = Ploop/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		4B99DC2F4146331BE81355DC /* Pods-Ploop.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Ploop.debug.xcconfig"; path = "Target Support Files/Pods-Ploop/Pods-Ploop.debug.xcconfig"; sourceTree = "<group>"; };
+		91316042F48E60B536A89D05 /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-Ploop/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
+		99277DCF1A8DA547419ABDE7 /* libPods-Ploop.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-Ploop.a"; sourceTree = BUILT_PRODUCTS_DIR; };
+		9A6CB70E332F71A65B67EAEA /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; name = PrivacyInfo.xcprivacy; path = Ploop/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = SplashScreen.storyboard; path = Ploop/SplashScreen.storyboard; sourceTree = "<group>"; };
 		BB2F792C24A3F905000567C9 /* Expo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Expo.plist; sourceTree = "<group>"; };
+		C501B0CB84EF37B8431D283A /* Pods-Ploop.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Ploop.release.xcconfig"; path = "Target Support Files/Pods-Ploop/Pods-Ploop.release.xcconfig"; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 		F11748412D0307B40044C1D9 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = Ploop/AppDelegate.swift; sourceTree = "<group>"; };
 		F11748442D0722820044C1D9 /* Ploop-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = "Ploop-Bridging-Header.h"; path = "Ploop/Ploop-Bridging-Header.h"; sourceTree = "<group>"; };
@@ -37,22 +37,13 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				846128AE4A3FD04CEE224DE5 /* libPods-Ploop.a in Frameworks */,
+				B33F7360E795FCBA12A11CB1 /* libPods-Ploop.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		0497FF6FDD32946E71020399 /* Pods */ = {
-			isa = PBXGroup;
-			children = (
-				280818E9210B1562A508630A /* Pods-Ploop.debug.xcconfig */,
-				45685CE9CE7D14553636F627 /* Pods-Ploop.release.xcconfig */,
-			);
-			path = Pods;
-			sourceTree = "<group>";
-		};
 		13B07FAE1A68108700A75B9A /* Ploop */ = {
 			isa = PBXGroup;
 			children = (
@@ -62,7 +53,7 @@
 				13B07FB51A68108700A75B9A /* Images.xcassets */,
 				13B07FB61A68108700A75B9A /* Info.plist */,
 				AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */,
-				5524C6975DE604DA481324F3 /* PrivacyInfo.xcprivacy */,
+				9A6CB70E332F71A65B67EAEA /* PrivacyInfo.xcprivacy */,
 			);
 			name = Ploop;
 			sourceTree = "<group>";
@@ -71,23 +62,15 @@
 			isa = PBXGroup;
 			children = (
 				ED297162215061F000B7C4FE /* JavaScriptCore.framework */,
-				0341C302FC4DB24A0D72FCAC /* libPods-Ploop.a */,
+				99277DCF1A8DA547419ABDE7 /* libPods-Ploop.a */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
 		};
-		4D2CC4C41CCDED58EDF4BA77 /* ExpoModulesProviders */ = {
+		3E8028457736C034106E4F2D /* Ploop */ = {
 			isa = PBXGroup;
 			children = (
-				6CF50B7E2B258F4BAC5BEDCF /* Ploop */,
-			);
-			name = ExpoModulesProviders;
-			sourceTree = "<group>";
-		};
-		6CF50B7E2B258F4BAC5BEDCF /* Ploop */ = {
-			isa = PBXGroup;
-			children = (
-				1F9ABBC6EBFD54B0774B38F6 /* ExpoModulesProvider.swift */,
+				91316042F48E60B536A89D05 /* ExpoModulesProvider.swift */,
 			);
 			name = Ploop;
 			sourceTree = "<group>";
@@ -106,8 +89,8 @@
 				832341AE1AAA6A7D00B99B32 /* Libraries */,
 				83CBBA001A601CBA00E9B192 /* Products */,
 				2D16E6871FA4F8E400B85C8A /* Frameworks */,
-				0497FF6FDD32946E71020399 /* Pods */,
-				4D2CC4C41CCDED58EDF4BA77 /* ExpoModulesProviders */,
+				B988C480E5C5C92CEF1898D4 /* Pods */,
+				C9C4250A2AAB17F48261D31A /* ExpoModulesProviders */,
 			);
 			indentWidth = 2;
 			sourceTree = "<group>";
@@ -122,6 +105,16 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
+		B988C480E5C5C92CEF1898D4 /* Pods */ = {
+			isa = PBXGroup;
+			children = (
+				4B99DC2F4146331BE81355DC /* Pods-Ploop.debug.xcconfig */,
+				C501B0CB84EF37B8431D283A /* Pods-Ploop.release.xcconfig */,
+			);
+			name = Pods;
+			path = Pods;
+			sourceTree = "<group>";
+		};
 		BB2F792B24A3F905000567C9 /* Supporting */ = {
 			isa = PBXGroup;
 			children = (
@@ -129,6 +122,14 @@
 			);
 			name = Supporting;
 			path = Ploop/Supporting;
+			sourceTree = "<group>";
+		};
+		C9C4250A2AAB17F48261D31A /* ExpoModulesProviders */ = {
+			isa = PBXGroup;
+			children = (
+				3E8028457736C034106E4F2D /* Ploop */,
+			);
+			name = ExpoModulesProviders;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -139,13 +140,13 @@
 			buildConfigurationList = 13B07F931A680F5B00A75B9A /* Build configuration list for PBXNativeTarget "Ploop" */;
 			buildPhases = (
 				08A4A3CD28434E44B6B9DE2E /* [CP] Check Pods Manifest.lock */,
-				F1EFABED18A4ACAE0EBB17FB /* [Expo] Configure project */,
+				A0CFC5C753F910D90D09979A /* [Expo] Configure project */,
 				13B07F871A680F5B00A75B9A /* Sources */,
 				13B07F8C1A680F5B00A75B9A /* Frameworks */,
 				13B07F8E1A680F5B00A75B9A /* Resources */,
 				00DD1BFF1BD5951E006B06BC /* Bundle React Native code and images */,
 				800E24972A6A228C8D4807E9 /* [CP] Copy Pods Resources */,
-				91FE2F08EF9039DFCDED621B /* [CP] Embed Pods Frameworks */,
+				877409247E5620099E225562 /* [CP] Embed Pods Frameworks */,
 			);
 			buildRules = (
 			);
@@ -162,11 +163,12 @@
 		83CBB9F71A601CBA00E9B192 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				BuildIndependentTargetsInParallel = YES;
-				LastUpgradeCheck = 2620;
+				LastUpgradeCheck = 1130;
 				TargetAttributes = {
 					13B07F861A680F5B00A75B9A = {
 						LastSwiftMigration = 1250;
+						DevelopmentTeam = "BRD35734T6";
+						ProvisioningStyle = Automatic;
 					};
 				};
 			};
@@ -196,7 +198,7 @@
 				BB2F792D24A3F905000567C9 /* Expo.plist in Resources */,
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
 				3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */,
-				69DA7991309ACEB5D2CFB006 /* PrivacyInfo.xcprivacy in Resources */,
+				52120196A3A2305588D17C1D /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -249,6 +251,8 @@
 			);
 			inputPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-Ploop/Pods-Ploop-resources.sh",
+				"${PODS_ROOT}/AMap3DMap/MAMapKit.framework/AMap.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/EXApplication/ExpoApplication_privacy.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/EXConstants/EXConstants.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/EXConstants/ExpoConstants_privacy.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/ExpoFileSystem/ExpoFileSystem_privacy.bundle",
@@ -263,6 +267,8 @@
 			);
 			name = "[CP] Copy Pods Resources";
 			outputPaths = (
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/AMap.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/ExpoApplication_privacy.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/EXConstants.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/ExpoConstants_privacy.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/ExpoFileSystem_privacy.bundle",
@@ -280,7 +286,7 @@
 			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-Ploop/Pods-Ploop-resources.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
-		91FE2F08EF9039DFCDED621B /* [CP] Embed Pods Frameworks */ = {
+		877409247E5620099E225562 /* [CP] Embed Pods Frameworks */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -302,7 +308,7 @@
 			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-Ploop/Pods-Ploop-frameworks.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
-		F1EFABED18A4ACAE0EBB17FB /* [Expo] Configure project */ = {
+		A0CFC5C753F910D90D09979A /* [Expo] Configure project */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
@@ -334,7 +340,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */,
-				91001A3D4A7B9605488E1EDB /* ExpoModulesProvider.swift in Sources */,
+				CE38718305A948B319C38FB7 /* ExpoModulesProvider.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -343,15 +349,13 @@
 /* Begin XCBuildConfiguration section */
 		13B07F941A680F5B00A75B9A /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 280818E9210B1562A508630A /* Pods-Ploop.debug.xcconfig */;
+			baseConfigurationReference = 4B99DC2F4146331BE81355DC /* Pods-Ploop.debug.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = Ploop/Ploop.entitlements;
-				CURRENT_PROJECT_VERSION = 28;
-				DEVELOPMENT_TEAM = BRD35734T6;
+				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_BITCODE = NO;
-				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"$(inherited)",
 					"FB_SONARKIT_ENABLED=1",
@@ -362,7 +366,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.2.12;
+				MARKETING_VERSION = 1.0;
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-ObjC",
@@ -376,26 +380,27 @@
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				VERSIONING_SYSTEM = "apple-generic";
+				DEVELOPMENT_TEAM = "BRD35734T6";
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
 			};
 			name = Debug;
 		};
 		13B07F951A680F5B00A75B9A /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 45685CE9CE7D14553636F627 /* Pods-Ploop.release.xcconfig */;
+			baseConfigurationReference = C501B0CB84EF37B8431D283A /* Pods-Ploop.release.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = Ploop/Ploop.entitlements;
-				CURRENT_PROJECT_VERSION = 28;
-				DEVELOPMENT_TEAM = BRD35734T6;
-				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				CURRENT_PROJECT_VERSION = 1;
 				INFOPLIST_FILE = Ploop/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.2.12;
+				MARKETING_VERSION = 1.0;
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-ObjC",
@@ -408,6 +413,9 @@
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				VERSIONING_SYSTEM = "apple-generic";
+				DEVELOPMENT_TEAM = "BRD35734T6";
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
 			};
 			name = Release;
 		};
@@ -434,7 +442,6 @@
 				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
 				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
-				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
 				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
 				CLANG_WARN_STRICT_PROTOTYPES = YES;
 				CLANG_WARN_SUSPICIOUS_MOVE = YES;
@@ -442,10 +449,8 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
 				COPY_PHASE_STRIP = NO;
-				DEVELOPMENT_TEAM = BRD35734T6;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
-				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_NO_COMMON_BLOCKS = YES;
@@ -471,7 +476,6 @@
 				ONLY_ACTIVE_ARCH = YES;
 				REACT_NATIVE_PATH = "${PODS_ROOT}/../../node_modules/react-native";
 				SDKROOT = iphoneos;
-				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) DEBUG";
 				SWIFT_ENABLE_EXPLICIT_MODULES = NO;
 				USE_HERMES = true;
@@ -501,7 +505,6 @@
 				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
 				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
-				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
 				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
 				CLANG_WARN_STRICT_PROTOTYPES = YES;
 				CLANG_WARN_SUSPICIOUS_MOVE = YES;
@@ -509,10 +512,8 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
 				COPY_PHASE_STRIP = YES;
-				DEVELOPMENT_TEAM = BRD35734T6;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
-				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
@@ -530,8 +531,6 @@
 				MTL_ENABLE_DEBUG_INFO = NO;
 				REACT_NATIVE_PATH = "${PODS_ROOT}/../../node_modules/react-native";
 				SDKROOT = iphoneos;
-				STRING_CATALOG_GENERATE_SYMBOLS = YES;
-				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_ENABLE_EXPLICIT_MODULES = NO;
 				USE_HERMES = true;
 				VALIDATE_PRODUCT = YES;

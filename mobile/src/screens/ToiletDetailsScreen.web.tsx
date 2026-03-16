@@ -4,6 +4,7 @@ import * as Location from 'expo-location';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { api, Toilet } from '../services/api';
 import { hapticSuccess } from '../utils/engagement';
+import { playFlushSound } from '../utils/flushSound';
 import { openInMapsWithChoice } from '../utils/maps';
 
 const RATING_SCORES = [1, 2, 3, 4, 5] as const;
@@ -53,6 +54,7 @@ export default function ToiletDetailsScreenWeb() {
       });
       await api.bumpLocalMetric('reviews', 1);
       await hapticSuccess();
+      playFlushSound();
       setReviewCleanliness(null);
       setReviewSmell(null);
       setReviewSuccess(true);
@@ -244,6 +246,13 @@ export default function ToiletDetailsScreenWeb() {
         )}
       </View>
 
+      {(toilet.total_reviews ?? 0) === 0 && (
+        <View style={styles.importedHintBanner}>
+          <Text style={styles.importedHintText}>
+            This toilet was imported from public data and has no reviews yet. Please leave a review after your visit to help others!
+          </Text>
+        </View>
+      )}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Scores</Text>
         <View style={styles.rowWrap}>
@@ -382,6 +391,19 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.08)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.12)',
+  },
+  importedHintBanner: {
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    backgroundColor: 'rgba(251,191,36,0.2)',
+    borderRadius: 10,
+    borderLeftWidth: 4,
+    borderLeftColor: '#f59e0b',
+  },
+  importedHintText: {
+    fontSize: 14,
+    color: '#fcd34d',
+    lineHeight: 20,
   },
   sectionTitle: { color: '#FFFFFF', fontWeight: '800', marginBottom: 10 },
   reviewHint: { color: 'rgba(255,255,255,0.65)', fontSize: 12, marginBottom: 12 },

@@ -53,6 +53,15 @@
     },
     "plugins": [
       [
+        "expo-gaode-map",
+        {
+          "iosKey": "ed9f68638d196fa87c2249feb1a6f2cf",
+          "androidKey": "5c5516813a76c46879f43dadc7d327ec",
+          "enableLocation": true,
+          "locationDescription": "Ploop needs your location to find nearby toilets."
+        }
+      ],
+      [
         "expo-location",
         {
           "locationAlwaysAndWhenInUsePermission": "Allow Ploop to use your location to find nearby toilets."
@@ -71,7 +80,8 @@
       "eas": {
         "projectId": "1a68d0eb-38ca-4355-8647-ecae49131430"
       },
-      "googleMapsApiKey": "AIzaSyCLKBC2IeU1rQVSdhSZBCfDu984LcwiSXg"
+      "googleMapsApiKey": "AIzaSyCLKBC2IeU1rQVSdhSZBCfDu984LcwiSXg",
+      "gaodeWebKey": "f90673c8ecb33cae178e0eca200ae953"
     },
     "owner": "jcrs96"
   }

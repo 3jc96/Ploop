@@ -6,6 +6,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { api } from '../services/api';
 import { getOxymoronicTagline } from '../utils/engagement';
+import { useLanguage } from '../context/LanguageContext';
 
 const HEALTH_TIMEOUT_MS = 8000;
 const PROGRESS_INTERVAL_MS = 150;
@@ -14,6 +15,7 @@ const PROGRESS_CAP = 95; // Stop at 95% until health succeeds
 type Status = 'checking' | 'ready' | 'failed';
 
 export function BackendReadyGate({ children }: { children: React.ReactNode }) {
+  const { t } = useLanguage();
   const [tagline] = useState(() => getOxymoronicTagline());
   const [status, setStatus] = useState<Status>('checking');
   const [attempts, setAttempts] = useState(0);
@@ -61,7 +63,7 @@ export function BackendReadyGate({ children }: { children: React.ReactNode }) {
       {status === 'checking' ? (
         <>
           <Text style={styles.message}>
-            {attempts > 1 ? `Connecting… (attempt ${attempts})` : 'Better than you think, closer than you thought!'}
+            {attempts > 1 ? t('connectingAttempt').replace('{n}', String(attempts)) : t('betterThanYouThink')}
           </Text>
           <View style={styles.barTrack}>
             <View style={[styles.barFill, { width: `${progress}%` }]} />
@@ -71,15 +73,15 @@ export function BackendReadyGate({ children }: { children: React.ReactNode }) {
         </>
       ) : (
         <>
-          <Text style={styles.message}>Could not reach Ploop</Text>
+          <Text style={styles.message}>{t('couldNotReachPloop')}</Text>
           <Text style={styles.hint}>
-            The server may still be starting. Tap below to try again.
+            {t('serverMayBeStarting')}
           </Text>
           <Pressable
             style={({ pressed }) => [styles.retryButton, pressed && styles.retryButtonPressed]}
             onPress={runHealthCheck}
           >
-            <Text style={styles.retryButtonText}>Retry</Text>
+            <Text style={styles.retryButtonText}>{t('retry')}</Text>
           </Pressable>
         </>
       )}

@@ -6,8 +6,11 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import * as WebBrowser from 'expo-web-browser';
 import { AppErrorBoundary } from './src/AppErrorBoundary';
-import { BackendReadyGate } from './src/components/BackendReadyGate';
+import { AppLoadingGate } from './src/components/AppLoadingGate';
+import { SplashSoundGate } from './src/components/SplashSoundGate';
 import { AuthProvider } from './src/context/AuthContext';
+import { LanguageProvider } from './src/context/LanguageContext';
+import { MapProvider } from './src/context/MapProviderContext';
 import { WebAuthRedirectHandler } from './src/WebAuthRedirectHandler';
 
 import LoginScreenWrapper from './src/screens/LoginScreenWrapper';
@@ -82,7 +85,10 @@ export default function App() {
     <AppErrorBoundary>
       <GestureHandlerRootView style={{ flex: 1 }}>
         <SafeAreaProvider>
-          <BackendReadyGate>
+          <SplashSoundGate>
+          <LanguageProvider>
+          <MapProvider>
+          <AppLoadingGate>
           <AuthProvider>
           <WebAuthRedirectHandler />
           <NavigationContainer linking={linking}>
@@ -140,7 +146,10 @@ export default function App() {
             </Stack.Navigator>
           </NavigationContainer>
           </AuthProvider>
-          </BackendReadyGate>
+          </AppLoadingGate>
+          </MapProvider>
+          </LanguageProvider>
+          </SplashSoundGate>
         </SafeAreaProvider>
       </GestureHandlerRootView>
     </AppErrorBoundary>

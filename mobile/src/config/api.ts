@@ -117,6 +117,7 @@ export const API_ENDPOINTS = {
   searchNames: `${API_BASE_URL}/api/toilets/search-names`,
   uploadPhoto: (toiletId: string) => `${API_BASE_URL}/api/toilets/${toiletId}/photo`,
   addReview: (toiletId: string) => `${API_BASE_URL}/api/toilets/${toiletId}/review`,
+  markServiced: (toiletId: string) => `${API_BASE_URL}/api/toilets/${toiletId}/serviced`,
   landmarks: `${API_BASE_URL}/api/landmarks/search`,
   landmarkDetails: (placeId: string) => `${API_BASE_URL}/api/landmarks/${placeId}`,
   locationDetails: `${API_BASE_URL}/api/landmarks/location/details`,

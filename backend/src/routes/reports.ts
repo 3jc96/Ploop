@@ -5,7 +5,7 @@ import pool from '../config/database';
 
 const router = express.Router();
 
-const REPORT_TYPES = ['closed', 'out_of_order', 'no_access', 'gross', 'busy'] as const;
+const REPORT_TYPES = ['closed', 'out_of_order', 'no_access', 'gross', 'busy', 'needs_cleaning'] as const;
 type ReportType = (typeof REPORT_TYPES)[number];
 
 function getDeviceId(req: Request): string | null {
@@ -20,6 +20,8 @@ function expiryFor(type: ReportType): number {
       return 45 * 60; // 45m
     case 'gross':
       return 6 * 60 * 60; // 6h
+    case 'needs_cleaning':
+      return 12 * 60 * 60; // 12h
     case 'closed':
       return 10 * 60 * 60; // 10h
     case 'out_of_order':

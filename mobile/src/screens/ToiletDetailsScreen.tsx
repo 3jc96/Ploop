@@ -29,9 +29,23 @@ import * as Location from 'expo-location';
 import * as Haptics from 'expo-haptics';
 import { api, Toilet, ToiletReview } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { getReviewSuccessMessage, hapticSuccess, getErrorMessage } from '../utils/engagement';
+import { playFlushSound } from '../utils/flushSound';
 import { openInMapsWithChoice } from '../utils/maps';
+
+function formatServicedAgo(iso: string, t: (k: string) => string): string {
+  const d = new Date(iso);
+  const now = new Date();
+  const mins = Math.floor((now.getTime() - d.getTime()) / 60000);
+  if (mins < 1) return t('justNow');
+  if (mins < 60) return `${mins}${t('minutesAgo')}`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}${t('hoursAgo')}`;
+  const days = Math.floor(hrs / 24);
+  return `${days}${t('daysAgo')}`;
+}
 
 const SOS_OPTIONS = [
   { id: 'toilet_paper', label: 'Toilet paper', emoji: '🧻', messageText: 'I need toilet paper' },
@@ -45,6 +59,7 @@ const ToiletDetailsScreen: React.FC = () => {
   const route = useRoute();
   const navigation = useNavigation();
   const { user } = useAuth();
+  const { t } = useLanguage();
   const { toiletId } = (route.params as { toiletId?: string }) || {};
   const [toilet, setToilet] = useState<Toilet | null>(null);
   const [loading, setLoading] = useState(true);
@@ -61,6 +76,7 @@ const ToiletDetailsScreen: React.FC = () => {
   const [editText, setEditText] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [sosModalOpen, setSosModalOpen] = useState(false);
+  const [markingServiced, setMarkingServiced] = useState(false);
 
   useEffect(() => {
     if (!toiletId) return;
@@ -146,6 +162,20 @@ const loadToilet = async () => {
     }
   };
 
+  const handleMarkServiced = async () => {
+    if (!toiletId || !user) return;
+    setMarkingServiced(true);
+    try {
+      await api.markServiced(toiletId);
+      hapticSuccess();
+      loadToilet();
+    } catch (e: any) {
+      Alert.alert('Error', getErrorMessage(e, 'Failed to update. Sign in and try again.'));
+    } finally {
+      setMarkingServiced(false);
+    }
+  };
+
   const deleteMyReview = () => {
     if (!toiletId || !myReview) return;
     Alert.alert(
@@ -226,6 +256,7 @@ const loadToilet = async () => {
       const { reviews } = await api.getLocalMetrics();
       const message = getReviewSuccessMessage(reviews);
       await hapticSuccess();
+      playFlushSound();
       Alert.alert('Success', message);
       setReviewCleanliness(null);
       setReviewSmell(null);
@@ -307,30 +338,58 @@ const loadToilet = async () => {
         </View>
       </Modal>
 
+      {toilet.last_serviced_at && (
+        <View style={styles.servicedBadge}>
+          <Text style={styles.servicedBadgeText}>
+            ✨ {t('lastServiced')} {formatServicedAgo(toilet.last_serviced_at, t)}
+          </Text>
+        </View>
+      )}
+      {user && (
+        <View style={styles.businessSection}>
+          <TouchableOpacity
+            style={[styles.markServicedBtn, markingServiced && styles.markServicedBtnDisabled]}
+            onPress={handleMarkServiced}
+            disabled={markingServiced}
+          >
+            {markingServiced ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <Text style={styles.markServicedBtnText}>{t('justCleaned')}</Text>
+            )}
+          </TouchableOpacity>
+          <Text style={styles.businessHint}>{t('forStaffHint')}</Text>
+        </View>
+      )}
+      {(toilet.total_reviews ?? 0) === 0 && (
+        <View style={styles.importedHintBanner}>
+          <Text style={styles.importedHintText}>{t('importedNoReviewsHint')}</Text>
+        </View>
+      )}
       <View style={styles.scoresSection}>
         <View style={styles.scoreCard}>
-          <Text style={styles.scoreLabel}>Cleanliness</Text>
+          <Text style={styles.scoreLabel}>{t('cleanliness')}</Text>
           <Text style={styles.scoreValue}>
             {formatScore(toilet.cleanliness_score)}/5
           </Text>
           <Text style={styles.reviewCount}>
-            {toilet.total_reviews} review{toilet.total_reviews !== 1 ? 's' : ''}
+            {toilet.total_reviews} {t('reviews')}
           </Text>
         </View>
         <View style={styles.scoreCard}>
-          <Text style={styles.scoreLabel}>Smell</Text>
+          <Text style={styles.scoreLabel}>{t('smell')}</Text>
           <Text style={styles.scoreValue}>
             {formatScore(toilet.smell_score)}/5
           </Text>
           <Text style={styles.reviewCount}>
-            {toilet.total_reviews} review{toilet.total_reviews !== 1 ? 's' : ''}
+            {toilet.total_reviews} {t('reviews')}
           </Text>
         </View>
       </View>
 
       {user && myReview && !editingReviewId && (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Your review</Text>
+          <Text style={styles.sectionTitle}>{t('yourReview')}</Text>
           <View style={styles.myReviewCard}>
             <Text style={styles.myReviewScores}>
               Cleanliness {formatScore(myReview.cleanliness_score)}/5 · Smell {formatScore(myReview.smell_score)}/5
@@ -414,7 +473,7 @@ const loadToilet = async () => {
       )}
 
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Amenities</Text>
+        <Text style={styles.sectionTitle}>{t('amenities')}</Text>
         <View style={styles.amenitiesGrid}>
           {toilet.has_toilet_paper && (
             <View style={styles.amenityItem}>
@@ -781,6 +840,66 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#64748b',
     fontWeight: '500',
+  },
+  servicedBadge: {
+    marginHorizontal: 20,
+    marginTop: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    backgroundColor: '#ecfdf5',
+    borderRadius: 10,
+    borderLeftWidth: 4,
+    borderLeftColor: '#10b981',
+  },
+  servicedBadgeText: {
+    fontSize: 14,
+    color: '#047857',
+    fontWeight: '600',
+  },
+  importedHintBanner: {
+    marginHorizontal: 20,
+    marginTop: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    backgroundColor: '#fef3c7',
+    borderRadius: 10,
+    borderLeftWidth: 4,
+    borderLeftColor: '#f59e0b',
+  },
+  importedHintText: {
+    fontSize: 14,
+    color: '#92400e',
+    lineHeight: 20,
+  },
+  businessSection: {
+    marginHorizontal: 20,
+    marginTop: 16,
+    padding: 16,
+    backgroundColor: '#f0fdf4',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#bbf7d0',
+  },
+  markServicedBtn: {
+    backgroundColor: '#10b981',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  markServicedBtnDisabled: {
+    opacity: 0.7,
+  },
+  markServicedBtnText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  businessHint: {
+    fontSize: 12,
+    color: '#64748b',
+    marginTop: 8,
+    textAlign: 'center',
   },
   scoresSection: {
     flexDirection: 'row',
