@@ -24,7 +24,8 @@
       "autoIncrement": true,
       "prebuildCommand": "npx expo prebuild --clean",
       "env": {
-        "EXPO_PUBLIC_PLOOP_API_URL": "https://ploop-api.onrender.com"
+        "EXPO_PUBLIC_PLOOP_API_URL": "https://ploop-api.onrender.com",
+        "EXPO_PUBLIC_GOOGLE_CLIENT_ID": "765592890788-6e8s1b0ugc544krdfiosv0lv9cg2ket5.apps.googleusercontent.com"
       },
       "android": {
         "buildType": "app-bundle"
