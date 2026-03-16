@@ -3,7 +3,7 @@
     "name": "Ploop",
     "slug": "ploop",
     "scheme": "ploop",
-    "version": "1.2.12",
+    "version": "1.2.15",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -20,7 +20,7 @@
     },
     "ios": {
       "supportsTablet": true,
-      "buildNumber": "29",
+      "buildNumber": "35",
       "bundleIdentifier": "com.ploop.app",
       "config": {
         "googleMapsApiKey": "AIzaSyCLKBC2IeU1rQVSdhSZBCfDu984LcwiSXg"
@@ -81,7 +81,8 @@
         "projectId": "1a68d0eb-38ca-4355-8647-ecae49131430"
       },
       "googleMapsApiKey": "AIzaSyCLKBC2IeU1rQVSdhSZBCfDu984LcwiSXg",
-      "gaodeWebKey": "f90673c8ecb33cae178e0eca200ae953"
+      "gaodeWebKey": "f90673c8ecb33cae178e0eca200ae953",
+      "googleClientId": "765592890788-6e8s1b0ugc544krdfiosv0lv9cg2ket5.apps.googleusercontent.com"
     },
     "owner": "jcrs96"
   }

@@ -75,7 +75,10 @@ export default function LoginScreen() {
       console.log('[Ploop] Google redirect URI (add to Google Cloud Console):', redirectUri);
     }
   }, [redirectUri]);
-  const clientId = process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID || '';
+  const clientId =
+    process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID ||
+    (Constants.expoConfig?.extra as Record<string, unknown>)?.googleClientId ||
+    '';
   const discovery = AuthSession.useAutoDiscovery('https://accounts.google.com');
   const [request, , promptAsync] = AuthSession.useAuthRequest(
     {
