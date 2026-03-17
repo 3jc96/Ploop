@@ -165,5 +165,28 @@ export async function ensureFeatureTables(): Promise<void> {
     CREATE INDEX IF NOT EXISTS idx_poop_game_scores_score ON poop_game_scores (score DESC);
     CREATE INDEX IF NOT EXISTS idx_poop_game_scores_created ON poop_game_scores (created_at DESC);
   `);
+
+  // User suggestions (40 chars) – sent to admin via email + push
+  await safe(`
+    CREATE TABLE IF NOT EXISTS suggestions (
+      id uuid PRIMARY KEY,
+      text text NOT NULL,
+      user_id uuid REFERENCES users(id) ON DELETE SET NULL,
+      device_id text,
+      created_at timestamptz NOT NULL DEFAULT now()
+    );
+  `);
+  await safe(`CREATE INDEX IF NOT EXISTS idx_suggestions_created ON suggestions (created_at DESC);`);
+
+  // Admin push tokens for suggestion notifications
+  await safe(`
+    CREATE TABLE IF NOT EXISTS admin_push_tokens (
+      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      email text NOT NULL,
+      token text NOT NULL,
+      created_at timestamptz NOT NULL DEFAULT now()
+    );
+  `);
+  await safe(`CREATE UNIQUE INDEX IF NOT EXISTS idx_admin_push_tokens_token ON admin_push_tokens (token);`);
 }
 

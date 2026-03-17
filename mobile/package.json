@@ -1,6 +1,6 @@
 {
   "name": "ploop-mobile",
-  "version": "1.2.12",
+  "version": "1.2.15",
   "main": "node_modules/expo/AppEntry.js",
   "scripts": {
     "postinstall": "patch-package",
@@ -38,6 +38,7 @@
     "expo-image-picker": "~17.0.10",
     "expo-local-authentication": "~17.0.8",
     "expo-location": "~19.0.8",
+    "expo-notifications": "~0.32.16",
     "expo-secure-store": "~15.0.8",
     "expo-status-bar": "~3.0.9",
     "expo-web-browser": "~15.0.0",

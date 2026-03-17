@@ -65,6 +65,7 @@ export interface NearbyToiletsParams {
   wheelchair_accessible?: boolean;
   free_only?: boolean;
   min_confidence?: number;
+  has_bidet?: boolean;
 }
 
 export interface DirectionsParams {
@@ -358,6 +359,22 @@ export const api = {
       const response = await httpClient.delete(API_ENDPOINTS.adminDeleteReview(reviewId), { headers: auth });
       return response.data;
     },
+    registerPushToken: async (token: string): Promise<{ ok: boolean }> => {
+      const auth = await api.getAuthHeaders();
+      const response = await httpClient.post(API_ENDPOINTS.adminRegisterPushToken, { token }, { headers: auth });
+      return response.data;
+    },
+  },
+
+  // Submit suggestion (40 chars max, sent to admin email + push)
+  submitSuggestion: async (text: string): Promise<{ id: string; ok: boolean }> => {
+    const cfg = await api.withDeviceHeaders();
+    const auth = await api.getAuthHeaders();
+    const response = await httpClient.post(API_ENDPOINTS.suggestions, { text: text.trim().slice(0, 40) }, {
+      ...cfg,
+      headers: { ...cfg.headers, ...auth },
+    });
+    return response.data;
   },
 
   // Submit a quick report (closed/busy/etc)

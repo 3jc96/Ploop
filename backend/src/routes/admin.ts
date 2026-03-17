@@ -261,4 +261,31 @@ router.delete(
   }
 );
 
+// POST /api/admin/register-push-token – store Expo push token for suggestion notifications
+router.post(
+  '/register-push-token',
+  [body('token').isString().trim().notEmpty()],
+  async (req: Request, res: Response) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
+      }
+      const token = (req.body.token as string).trim();
+      const user = (req as any).user;
+      const email = user?.email?.toLowerCase?.() || '';
+      if (!email) return res.status(400).json({ error: 'User email required' });
+      await pool.query(
+        `INSERT INTO admin_push_tokens (email, token) VALUES ($1, $2)
+         ON CONFLICT (token) DO UPDATE SET email = EXCLUDED.email, created_at = now()`,
+        [email, token]
+      );
+      res.json({ ok: true });
+    } catch (e) {
+      console.error('Admin register push token:', e);
+      res.status(500).json({ error: 'Failed to register push token' });
+    }
+  }
+);
+
 export default router;

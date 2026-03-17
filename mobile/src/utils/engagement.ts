@@ -190,21 +190,21 @@ export function getTriviaQuestionExcluding(seen: Set<number>): { question: Trivi
   return available[Math.floor(Math.random() * available.length)];
 }
 
-// ─── Oxymoronic taglines (playful, ironic copy) ───────────────────────────────
+// ─── Health tips (gut health & toilet hygiene) ────────────────────────────────
 
-const OXYMORONIC_TAGLINES = [
-  'Blueberries have fiber so you spend less time on this app.',
-  'We help you go faster by helping you go.',
-  'The best toilet app is the one you barely need.',
-  'Find relief so you can forget we exist.',
-  'More toilets nearby = fewer reasons to open us.',
-  'We’re here so you can get out of here.',
-  'The less you think about us, the better we’re doing.',
-  'Your bladder’s best friend is an app you’ll forget you have.',
+const HEALTH_TAGLINES = [
+  'Staying hydrated helps keep things moving—aim for 8 glasses a day.',
+  'Sitting too long on the toilet can strain blood vessels—keep it under 10 minutes.',
+  'Fiber from fruits and veggies supports regular, healthy digestion.',
+  'Washing hands for 20 seconds helps prevent the spread of germs.',
+  'Squatting or using a footstool can make bowel movements easier.',
+  "Don't rush—taking your time reduces strain and supports gut health.",
+  'Probiotics in yogurt and fermented foods support a healthy gut.',
+  'Always flush with the lid down to reduce spray and bacteria spread.',
 ];
 
 export function getOxymoronicTagline(): string {
-  return OXYMORONIC_TAGLINES[Math.floor(Math.random() * OXYMORONIC_TAGLINES.length)];
+  return HEALTH_TAGLINES[Math.floor(Math.random() * HEALTH_TAGLINES.length)];
 }
 
 // ─── Emoji tap messages (Start screen) ───────────────────────────────────────

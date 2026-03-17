@@ -175,6 +175,7 @@ const MapScreen: React.FC = () => {
   const [savedToilets, setSavedToilets] = useState<Toilet[]>([]);
   const [filterWheelchairOnly, setFilterWheelchairOnly] = useState(false);
   const [filterFreeOnly, setFilterFreeOnly] = useState(false);
+  const [filterBidetOnly, setFilterBidetOnly] = useState(false);
   const [minConfidence, setMinConfidence] = useState<number>(0);
   const [listTab, setListTab] = useState<'nearby' | 'saved' | 'lists'>('nearby');
   const [nearbyListLimit, setNearbyListLimit] = useState(10);
@@ -204,6 +205,9 @@ const MapScreen: React.FC = () => {
   const [hintModalOpen, setHintModalOpen] = useState(false);
   const [hintText, setHintText] = useState('');
   const [submittingHint, setSubmittingHint] = useState(false);
+  const [suggestionText, setSuggestionText] = useState('');
+  const [suggestionSending, setSuggestionSending] = useState(false);
+  const [suggestionSuccess, setSuggestionSuccess] = useState(false);
 
   const oxymoronicTagline = useMemo(() => getOxymoronicTagline(), []);
 
@@ -411,7 +415,7 @@ const MapScreen: React.FC = () => {
     }
   }, []);
 
-  const formatConfidence = useCallback((n: any) => {
+  const formatPloopScore = useCallback((n: any) => {
     const v = typeof n === 'number' ? n : parseInt(n || '0', 10);
     if (!Number.isFinite(v)) return null;
     return Math.max(0, Math.min(100, v));
@@ -567,7 +571,7 @@ const MapScreen: React.FC = () => {
 
   const fetchNearbyToilets = useCallback(
     async (coords: { latitude: number; longitude: number }) => {
-      const cacheKey = `cache.nearbyToilets.v2.${filterWheelchairOnly ? 1 : 0}.${filterFreeOnly ? 1 : 0}.${minConfidence}.${mapProvider}`;
+      const cacheKey = `cache.nearbyToilets.v2.${filterWheelchairOnly ? 1 : 0}.${filterFreeOnly ? 1 : 0}.${filterBidetOnly ? 1 : 0}.${minConfidence}.${mapProvider}`;
       const mergeWithGaode = mapProvider === 'amap';
 
       const mergeAndSort = (backendToilets: Toilet[], gaodeToilets: Toilet[]): Toilet[] => {
@@ -595,6 +599,7 @@ const MapScreen: React.FC = () => {
             radius: 2000,
             wheelchair_accessible: filterWheelchairOnly ? true : undefined,
             free_only: filterFreeOnly ? true : undefined,
+            has_bidet: filterBidetOnly ? true : undefined,
             min_confidence: minConfidence > 0 ? minConfidence : undefined,
           }),
           mergeWithGaode
@@ -608,7 +613,10 @@ const MapScreen: React.FC = () => {
         ]);
 
         const backendToilets = backendRes?.toilets ?? [];
-        const toilets = mergeWithGaode ? mergeAndSort(backendToilets, gaodeToilets) : backendToilets;
+        let toilets = mergeWithGaode ? mergeAndSort(backendToilets, gaodeToilets) : backendToilets;
+        if (filterBidetOnly) {
+          toilets = toilets.filter((t) => t.has_bidet === true);
+        }
         setToilets(toilets);
         setBackendUnreachable(false);
         try {
@@ -658,7 +666,7 @@ const MapScreen: React.FC = () => {
         throw e;
       }
     },
-    [filterFreeOnly, filterWheelchairOnly, minConfidence, mapProvider, metersBetween]
+    [filterFreeOnly, filterWheelchairOnly, filterBidetOnly, minConfidence, mapProvider, metersBetween]
   );
 
   // Don't fetch until we have real location – getLocationAndToilets will fetch when GPS is ready
@@ -878,7 +886,7 @@ const MapScreen: React.FC = () => {
       return () => {
         cancelled = true;
       };
-    }, [filterFreeOnly, filterWheelchairOnly, location?.coords?.latitude, location?.coords?.longitude, minConfidence, simulateChinaLocation, fetchNearbyToilets])
+    }, [filterFreeOnly, filterWheelchairOnly, filterBidetOnly, location?.coords?.latitude, location?.coords?.longitude, minConfidence, simulateChinaLocation, fetchNearbyToilets])
   );
 
   useEffect(() => {
@@ -2063,7 +2071,7 @@ const MapScreen: React.FC = () => {
             <View style={styles.arrivalMetaRow}>
               <Text style={styles.arrivalMetaText}>
                 {arrivalToilet.active_reports ? `${arrivalToilet.active_reports} active report${arrivalToilet.active_reports === 1 ? '' : 's'} • ` : ''}
-                Confidence {typeof arrivalToilet.confidence_score === 'number' ? arrivalToilet.confidence_score : formatConfidence(arrivalToilet.confidence_score)}
+                {t('ploopScore')} {typeof arrivalToilet.confidence_score === 'number' ? arrivalToilet.confidence_score : formatPloopScore(arrivalToilet.confidence_score)}
               </Text>
             </View>
           )}
@@ -2365,31 +2373,46 @@ const MapScreen: React.FC = () => {
               value={filterWheelchairOnly}
               onValueChange={(next) => {
                 setFilterWheelchairOnly(next);
-                api.track('filters_changed', { wheelchair_only: next, free_only: filterFreeOnly, min_confidence: minConfidence });
+                api.track('filters_changed', { wheelchair_only: next, free_only: filterFreeOnly, bidet_only: filterBidetOnly, min_confidence: minConfidence });
               }}
             />
           </View>
 
           <View style={styles.settingsRow}>
             <View style={styles.settingsRowText}>
-              <Text style={styles.settingsRowTitle}>Free only</Text>
-              <Text style={styles.settingsRowSubtitle}>Hide pay-to-enter toilets.</Text>
+              <Text style={styles.settingsRowTitle}>{t('freeOnly')}</Text>
+              <Text style={styles.settingsRowSubtitle}>{t('showFreeToilets')}</Text>
             </View>
             <Switch
               value={filterFreeOnly}
               onValueChange={(next) => {
                 setFilterFreeOnly(next);
-                api.track('filters_changed', { wheelchair_only: filterWheelchairOnly, free_only: next, min_confidence: minConfidence });
+                api.track('filters_changed', { wheelchair_only: filterWheelchairOnly, free_only: next, bidet_only: filterBidetOnly, min_confidence: minConfidence });
               }}
             />
           </View>
 
           <View style={styles.settingsRow}>
             <View style={styles.settingsRowText}>
-              <Text style={styles.settingsRowTitle}>Minimum confidence</Text>
-              <Text style={styles.settingsRowSubtitle}>Hide low-confidence toilets.</Text>
+              <Text style={styles.settingsRowTitle}>{t('bidetOnly')}</Text>
+              <Text style={styles.settingsRowSubtitle}>{t('showBidetToilets')}</Text>
+            </View>
+            <Switch
+              value={filterBidetOnly}
+              onValueChange={(next) => {
+                setFilterBidetOnly(next);
+                api.track('filters_changed', { wheelchair_only: filterWheelchairOnly, free_only: filterFreeOnly, bidet_only: next, min_confidence: minConfidence });
+              }}
+            />
+          </View>
+
+          <View style={styles.settingsRow}>
+            <View style={styles.settingsRowText}>
+              <Text style={styles.settingsRowTitle}>{t('minPloopScore')}</Text>
+              <Text style={styles.settingsRowSubtitle}>{t('hideLowPloopScore')}</Text>
             </View>
           </View>
+          <Text style={styles.ploopScoreExplanation}>{t('ploopScoreExplanation')}</Text>
           <View style={styles.settingsChipsRow}>
             {[0, 60, 75, 85].map((v) => (
               <Pressable
@@ -2401,7 +2424,7 @@ const MapScreen: React.FC = () => {
                 ]}
                 onPress={() => {
                   setMinConfidence(v);
-                  api.track('filters_changed', { wheelchair_only: filterWheelchairOnly, free_only: filterFreeOnly, min_confidence: v });
+                  api.track('filters_changed', { wheelchair_only: filterWheelchairOnly, free_only: filterFreeOnly, bidet_only: filterBidetOnly, min_confidence: v });
                 }}
               >
                 <Text style={[styles.settingsChipText, minConfidence === v && styles.settingsChipTextActive]}>
@@ -2410,6 +2433,49 @@ const MapScreen: React.FC = () => {
               </Pressable>
             ))}
           </View>
+
+          <View style={styles.settingsDivider} />
+          <Text style={styles.settingsSectionTitle}>{t('suggestionBox')}</Text>
+          <View style={styles.suggestionRow}>
+            <TextInput
+              style={styles.suggestionInput}
+              value={suggestionText}
+              onChangeText={(v) => setSuggestionText(v.slice(0, 40))}
+              placeholder={t('suggestionPlaceholder')}
+              maxLength={40}
+              editable={!suggestionSending}
+            />
+            <Pressable
+              style={({ pressed }) => [
+                styles.suggestionSubmit,
+                pressed && styles.hintSubmitPressed,
+                (suggestionSending || !suggestionText.trim()) && styles.hintSubmitDisabled,
+              ]}
+              disabled={suggestionSending || !suggestionText.trim()}
+              onPress={async () => {
+                const text = suggestionText.trim();
+                if (!text || suggestionSending) return;
+                try {
+                  setSuggestionSending(true);
+                  setSuggestionSuccess(false);
+                  await api.submitSuggestion(text);
+                  setSuggestionText('');
+                  setSuggestionSuccess(true);
+                  hapticSuccess();
+                  setTimeout(() => setSuggestionSuccess(false), 3000);
+                } catch (e: any) {
+                  Alert.alert(t('error'), t('suggestionError'));
+                } finally {
+                  setSuggestionSending(false);
+                }
+              }}
+            >
+              <Text style={styles.suggestionSubmitText}>
+                {suggestionSending ? '…' : suggestionSuccess ? '✓' : t('save')}
+              </Text>
+            </Pressable>
+          </View>
+          {suggestionSuccess && <Text style={styles.suggestionSuccessText}>{t('suggestionSent')}</Text>}
 
           <View style={styles.settingsDivider} />
           <Text style={styles.settingsSectionTitle}>Your Impact</Text>
@@ -2668,7 +2734,7 @@ const MapScreen: React.FC = () => {
           <View style={styles.pillsRow}>
             {typeof selectedToilet.confidence_score !== 'undefined' && (
               <View style={styles.pill}>
-                <Text style={styles.pillText}>Confidence {formatConfidence(selectedToilet.confidence_score)}</Text>
+                <Text style={styles.pillText}>{t('ploopScore')} {formatPloopScore(selectedToilet.confidence_score)}</Text>
               </View>
             )}
             {!!selectedToilet.active_reports && (
@@ -2915,7 +2981,7 @@ const MapScreen: React.FC = () => {
                   <View style={styles.listItemTopRow}>
                     <Text style={styles.listItemName}>{parseToiletNameAndBadges(item.name).displayName || item.name}</Text>
                     <Text style={styles.listItemMetaRight}>
-                      {typeof item.confidence_score !== 'undefined' ? `Conf ${formatConfidence(item.confidence_score)}` : ''}
+                      {typeof item.confidence_score !== 'undefined' ? `${t('ploopScore')} ${formatPloopScore(item.confidence_score)}` : ''}
                       {!!item.active_reports ? ` • ${item.active_reports} rpt` : ''}
                       {favoritesLoaded && isFavorite(item.id) ? ' • ★' : ''}
                     </Text>
@@ -4296,6 +4362,14 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     lineHeight: 18,
   },
+  ploopScoreExplanation: {
+    fontSize: 12,
+    color: '#94a3b8',
+    marginTop: 4,
+    marginBottom: 8,
+    lineHeight: 17,
+    paddingHorizontal: 4,
+  },
   settingsChipsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -4883,6 +4957,41 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '800',
     color: '#111827',
+  },
+  suggestionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 8,
+  },
+  suggestionInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: '#111827',
+  },
+  suggestionSubmit: {
+    backgroundColor: '#1A73E8',
+    borderRadius: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    minWidth: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  suggestionSubmitText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  suggestionSuccessText: {
+    marginTop: 6,
+    fontSize: 13,
+    color: '#059669',
   },
   hintInput: {
     borderWidth: 1,

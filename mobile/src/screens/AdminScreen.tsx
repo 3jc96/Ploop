@@ -15,6 +15,7 @@ import {
   Linking,
   Modal,
 } from 'react-native';
+import * as Notifications from 'expo-notifications';
 import { useNavigation, CommonActions } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
@@ -256,6 +257,27 @@ export default function AdminScreen() {
     setReviewsOffset(0);
     loadReviews(false);
   }, [isAdmin, tab]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Register push token for suggestion notifications (native only)
+  useEffect(() => {
+    if (!isAdmin || !unlocked || Platform.OS === 'web') return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { status } = await Notifications.requestPermissionsAsync();
+        if (cancelled || status !== 'granted') return;
+        const tokenData = await Notifications.getExpoPushTokenAsync({
+          projectId: '1a68d0eb-38ca-4355-8647-ecae49131430',
+        });
+        const token = tokenData?.data;
+        if (cancelled || !token) return;
+        await api.admin.registerPushToken(token);
+      } catch (e) {
+        if (!cancelled) console.warn('[Admin] Push token registration failed:', e);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [isAdmin, unlocked]);
 
   const handleEditReview = (r: any) => {
     setEditingReview(r);

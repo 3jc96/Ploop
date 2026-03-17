@@ -1,0 +1,18 @@
+{
+  "expo": {
+    "extra": {
+      "eas": {
+        "projectId": "1a68d0eb-38ca-4355-8647-ecae49131430"
+      }
+    },
+    "ios": {
+      "bundleIdentifier": "com.jcrs96.ploop",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "package": "com.jcrs96.ploop"
+    }
+  }
+}

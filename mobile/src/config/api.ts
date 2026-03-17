@@ -146,5 +146,8 @@ export const API_ENDPOINTS = {
   adminDeleteReview: (id: string) => `${API_BASE_URL}/api/admin/reviews/${id}`,
   // Poop game
   poopGameScores: `${API_BASE_URL}/api/poop-game/scores`,
+  // Suggestions (40 chars, sent to admin)
+  suggestions: `${API_BASE_URL}/api/suggestions`,
+  adminRegisterPushToken: `${API_BASE_URL}/api/admin/register-push-token`,
 };
 

@@ -118,6 +118,7 @@ router.get(
     query('wheelchair_accessible').optional().isBoolean(),
     query('free_only').optional().isBoolean(),
     query('min_confidence').optional().isInt({ min: 0, max: 100 }),
+    query('has_bidet').optional().isBoolean(),
   ],
   async (req: Request, res: Response) => {
     try {
@@ -126,7 +127,7 @@ router.get(
         return res.status(400).json({ errors: errors.array() });
       }
 
-      const { latitude, longitude, radius = 1000, limit = 50, wheelchair_accessible, free_only, min_confidence } = req.query as any;
+      const { latitude, longitude, radius = 1000, limit = 50, wheelchair_accessible, free_only, min_confidence, has_bidet } = req.query as any;
       const query: NearbyToiletsQuery = {
         latitude: parseFloat(latitude),
         longitude: parseFloat(longitude),
@@ -143,6 +144,9 @@ router.get(
       }
       if (free_only === true || free_only === 'true') {
         whereExtra += ` AND t.pay_to_enter = false`;
+      }
+      if (has_bidet === true || has_bidet === 'true') {
+        whereExtra += ` AND t.has_bidet = true`;
       }
 
       const result = await pool.query(

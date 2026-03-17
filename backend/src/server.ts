@@ -15,6 +15,7 @@ import hintsRouter from './routes/hints';
 import authRouter from './routes/auth';
 import adminRouter from './routes/admin';
 import poopGameRouter from './routes/poopGame';
+import suggestionsRouter from './routes/suggestions';
 import { optionalAuth } from './middleware/auth';
 import { ensureFeatureTables } from './utils/ensureTables';
 import { checkDatabase } from './utils/checkDatabase';
@@ -89,6 +90,11 @@ app.use(
 // Serve uploaded files
 const uploadDir = process.env.UPLOAD_DIR || './uploads';
 app.use('/uploads', express.static(path.resolve(uploadDir)));
+
+// Privacy policy (required for App Store)
+app.get('/privacy', (_req, res) => {
+  res.sendFile(path.join(__dirname, '../public/privacy.html'));
+});
 
 // Root endpoint – API discovery and documentation
 app.get('/', (req, res) => {
@@ -165,6 +171,7 @@ app.use('/api/analytics', analyticsRouter);
 app.use('/api/hints', hintsRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/poop-game', poopGameRouter);
+app.use('/api/suggestions', suggestionsRouter);
 
 // Error handling middleware
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {

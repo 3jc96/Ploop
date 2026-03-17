@@ -20,12 +20,16 @@
     },
     "ios": {
       "supportsTablet": true,
-      "buildNumber": "35",
+      "buildNumber": "38",
       "bundleIdentifier": "com.ploop.app",
+      "entitlements": {
+        "com.apple.developer.game-center": true
+      },
       "config": {
         "googleMapsApiKey": "AIzaSyCLKBC2IeU1rQVSdhSZBCfDu984LcwiSXg"
       },
       "infoPlist": {
+        "NSHumanReadableCopyright": "© 2025 Ploop",
         "NSLocationWhenInUseUsageDescription": "Ploop needs your location to find nearby toilets.",
         "NSPhotoLibraryUsageDescription": "Ploop needs access to your photos to upload toilet images.",
         "NSFaceIDUsageDescription": "Ploop uses Face ID to unlock the Admin section.",
@@ -37,7 +41,11 @@
     },
     "android": {
       "package": "com.ploop.app",
-      "usesCleartextTraffic": true,
+      "versionCode": 43,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/icon.png",
+        "backgroundColor": "#ffffff"
+      },
       "permissions": [
         "android.permission.ACCESS_FINE_LOCATION",
         "android.permission.ACCESS_COARSE_LOCATION",
@@ -74,7 +82,13 @@
         }
       ],
       "expo-asset",
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-notifications",
+        {
+          "sounds": []
+        }
+      ]
     ],
     "extra": {
       "eas": {
