@@ -13,9 +13,6 @@ import { useMapProvider } from '../context/MapProviderContext';
 import { MapPreloadProvider, type MapPreloadData } from '../context/MapPreloadContext';
 import { getOxymoronicTagline } from '../utils/engagement';
 
-const HEALTH_TIMEOUT_MS = 8000;
-const PROGRESS_INTERVAL_MS = 150;
-const PROGRESS_CAP = 95;
 const LOCATION_TIMEOUT_MS = 6000;
 
 function metersBetween(
@@ -39,48 +36,21 @@ export function AppLoadingGate({ children }: { children: React.ReactNode }) {
   const { t, locale, localeStatus, setLocale } = useLanguage();
   const { provider: mapProvider, simulateChinaLocation, BEIJING_COORDS } = useMapProvider();
   const [tagline] = useState(() => getOxymoronicTagline());
-  const [backendStatus, setBackendStatus] = useState<'checking' | 'ready' | 'failed'>('checking');
-  const [backendAttempts, setBackendAttempts] = useState(0);
-  const [backendProgress, setBackendProgress] = useState(0);
-  const backendStartRef = useRef<number>(0);
+  const [loadStatus, setLoadStatus] = useState<'loading' | 'ready' | 'failed' | 'denied'>('loading');
+  const [loadAttempts, setLoadAttempts] = useState(0);
+  const [loadPhase, setLoadPhase] = useState<'location' | 'toilets'>('location');
   const [preloadData, setPreloadData] = useState<MapPreloadData | null>(null);
-  const [locationStatus, setLocationStatus] = useState<'pending' | 'loading' | 'ready' | 'denied'>('pending');
+  const cancelledRef = useRef(false);
 
-  const runHealthCheck = useCallback(async () => {
-    setBackendStatus('checking');
-    setBackendAttempts((a) => a + 1);
-    setBackendProgress(0);
-    backendStartRef.current = Date.now();
-    const ok = await api.checkHealth(HEALTH_TIMEOUT_MS);
-    if (ok) {
-      setBackendProgress(100);
-      setBackendStatus('ready');
-    } else {
-      setBackendStatus('failed');
-    }
-  }, []);
+  const runFullLoad = useCallback(async () => {
+    setLoadStatus('loading');
+    setLoadAttempts((a) => a + 1);
+    setLoadPhase('location');
+    cancelledRef.current = false;
 
-  useEffect(() => {
-    runHealthCheck();
-  }, [runHealthCheck]);
-
-  useEffect(() => {
-    if (backendStatus !== 'checking') return;
-    const interval = setInterval(() => {
-      const elapsed = Date.now() - backendStartRef.current;
-      const pct = Math.min(PROGRESS_CAP, Math.round((elapsed / HEALTH_TIMEOUT_MS) * PROGRESS_CAP));
-      setBackendProgress(pct);
-    }, PROGRESS_INTERVAL_MS);
-    return () => clearInterval(interval);
-  }, [backendStatus]);
-
-  useEffect(() => {
-    if (backendStatus !== 'ready') return;
-
-    let cancelled = false;
-    (async () => {
+    let cancelled = () => cancelledRef.current;
+    try {
       if (simulateChinaLocation) {
-        setLocationStatus('loading');
         try {
           const coords = BEIJING_COORDS;
           const mergeWithGaode = mapProvider === 'amap';
@@ -119,31 +89,30 @@ export function AppLoadingGate({ children }: { children: React.ReactNode }) {
               .sort((a, b) => (a.distance ?? 999999) - (b.distance ?? 999999));
           };
           const toilets = mergeWithGaode ? mergeAndSort(backendToilets, gaodeToilets) : backendToilets;
-          if (!cancelled) {
+          if (!cancelled()) {
             setPreloadData({
               location: { coords } as Location.LocationObject,
               toilets,
             });
-            setLocationStatus('ready');
+            setLoadStatus('ready');
           }
         } catch {
-          if (!cancelled) {
+          if (!cancelled()) {
             setPreloadData({
               location: { coords: BEIJING_COORDS } as Location.LocationObject,
               toilets: [],
             });
-            setLocationStatus('ready');
+            setLoadStatus('ready');
           }
         }
         return;
       }
 
-      setLocationStatus('loading');
       try {
         const { status } = await Location.requestForegroundPermissionsAsync();
-        if (cancelled) return;
+        if (cancelled()) return;
         if (status !== 'granted') {
-          setLocationStatus('denied');
+          setLoadStatus('denied');
           setPreloadData(null);
           return;
         }
@@ -172,12 +141,13 @@ export function AppLoadingGate({ children }: { children: React.ReactNode }) {
           }
         }
 
-        if (cancelled || !coords) {
-          setLocationStatus('denied');
+        if (cancelled() || !coords) {
+          setLoadStatus('denied');
           setPreloadData(null);
           return;
         }
 
+        setLoadPhase('toilets');
         const mergeWithGaode = mapProvider === 'amap';
         const [backendRes, gaodeToilets] = await Promise.all([
           api.getNearbyToilets({
@@ -215,28 +185,33 @@ export function AppLoadingGate({ children }: { children: React.ReactNode }) {
         };
         const toilets = mergeWithGaode ? mergeAndSort(backendToilets, gaodeToilets) : backendToilets;
 
-        if (!cancelled) {
+        if (!cancelled()) {
           setPreloadData({
             location: { coords } as Location.LocationObject,
             toilets,
           });
-          setLocationStatus('ready');
+          setLoadStatus('ready');
         }
       } catch {
-        if (!cancelled) {
-          setLocationStatus('denied');
+        if (!cancelled()) {
+          setLoadStatus('failed');
           setPreloadData(null);
         }
       }
-    })();
+    } finally {
+      // no-op
+    }
+  }, [simulateChinaLocation, BEIJING_COORDS, mapProvider]);
+
+  useEffect(() => {
+    runFullLoad();
     return () => {
-      cancelled = true;
+      cancelledRef.current = true;
     };
-  }, [backendStatus, simulateChinaLocation, BEIJING_COORDS, mapProvider]);
+  }, [runFullLoad]);
 
   const allReady =
-    backendStatus === 'ready' &&
-    (locationStatus === 'ready' || locationStatus === 'denied') &&
+    (loadStatus === 'ready' || loadStatus === 'denied') &&
     localeStatus !== 'needsPick';
 
   if (allReady) {
@@ -298,31 +273,28 @@ export function AppLoadingGate({ children }: { children: React.ReactNode }) {
         )}
       </View>
 
-      {backendStatus === 'checking' ? (
+      {loadStatus === 'loading' ? (
         <>
           <Text style={styles.message}>
-            {backendAttempts > 1
-              ? t('connectingAttempt').replace('{n}', String(backendAttempts))
-              : t('betterThanYouThink')}
+            {loadAttempts > 1
+              ? t('connectingAttempt').replace('{n}', String(loadAttempts))
+              : loadPhase === 'toilets'
+                ? t('fetchingToilets')
+                : t('betterThanYouThink')}
           </Text>
-          <View style={styles.barTrack}>
-            <View style={[styles.barFill, { width: `${backendProgress}%` }]} />
-          </View>
-          <Text style={styles.percent}>{backendProgress}%</Text>
-          {locationStatus === 'loading' && (
+          {loadPhase === 'location' ? (
             <Text style={styles.hint}>{t('loadingLocation')}</Text>
-          )}
-          {locationStatus === 'pending' && backendStatus === 'checking' && (
-            <Text style={styles.hint}>{tagline}</Text>
+          ) : (
+            <Text style={styles.hint}>{t('fetchingToilets')}</Text>
           )}
         </>
-      ) : backendStatus === 'failed' ? (
+      ) : loadStatus === 'failed' ? (
         <>
           <Text style={styles.message}>{t('couldNotReachPloop')}</Text>
           <Text style={styles.hint}>{t('serverMayBeStarting')}</Text>
           <Pressable
             style={({ pressed }) => [styles.retryButton, pressed && styles.retryButtonPressed]}
-            onPress={runHealthCheck}
+            onPress={runFullLoad}
           >
             <Text style={styles.retryButtonText}>{t('retry')}</Text>
           </Pressable>

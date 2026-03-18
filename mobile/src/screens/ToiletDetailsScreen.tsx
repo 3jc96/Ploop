@@ -77,6 +77,8 @@ const ToiletDetailsScreen: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
   const [sosModalOpen, setSosModalOpen] = useState(false);
   const [markingServiced, setMarkingServiced] = useState(false);
+  const [checkingIn, setCheckingIn] = useState(false);
+  const [checkedInToday, setCheckedInToday] = useState(false);
 
   useEffect(() => {
     if (!toiletId) return;
@@ -345,6 +347,34 @@ const loadToilet = async () => {
           </Text>
         </View>
       )}
+      <TouchableOpacity
+        style={[styles.checkInButton, checkedInToday && styles.checkInButtonDone]}
+        onPress={async () => {
+          if (!toiletId || checkingIn || checkedInToday) return;
+          setCheckingIn(true);
+          try {
+            const res = await api.checkInToilet(toiletId);
+            setCheckedInToday(true); // Show "Checked in today" whether new or already checked in
+            if (res.checked_in) {
+              hapticSuccess();
+              playFlushSound();
+            }
+          } catch (e: any) {
+            Alert.alert(t('error'), getErrorMessage(e, 'Failed to check in.'));
+          } finally {
+            setCheckingIn(false);
+          }
+        }}
+        disabled={checkingIn || checkedInToday}
+      >
+        {checkingIn ? (
+          <ActivityIndicator size="small" color="#fff" />
+        ) : checkedInToday ? (
+          <Text style={styles.checkInButtonText}>✓ {t('checkedInToday')}</Text>
+        ) : (
+          <Text style={styles.checkInButtonText}>📍 {t('checkIn')}</Text>
+        )}
+      </TouchableOpacity>
       {user && (
         <View style={styles.businessSection}>
           <TouchableOpacity
@@ -840,6 +870,23 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#64748b',
     fontWeight: '500',
+  },
+  checkInButton: {
+    marginHorizontal: 20,
+    marginTop: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: '#2196F3',
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  checkInButtonDone: {
+    backgroundColor: '#10b981',
+  },
+  checkInButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
   },
   servicedBadge: {
     marginHorizontal: 20,

@@ -158,6 +158,22 @@ export const api = {
     return { headers: { 'X-Ploop-Device-Id': deviceId } };
   },
 
+  // Super Toilet of the Day: highest confidence in the region (city)
+  getSuperToiletOfTheDay: async (params: {
+    city?: string;
+    latitude?: number;
+    longitude?: number;
+    timezone?: string;
+  }): Promise<{ toilet: Toilet; region: string; date: string } | null> => {
+    try {
+      const response = await httpClient.get(API_ENDPOINTS.superToiletOfTheDay, { params });
+      return response.data;
+    } catch (e: any) {
+      if (e?.response?.status === 404 || e?.response?.status === 400) return null;
+      throw e;
+    }
+  },
+
   // Get nearby toilets (normalize response so toilets is always an array)
   getNearbyToilets: async (params: NearbyToiletsParams): Promise<{ toilets: Toilet[]; count: number }> => {
     const response = await httpClient.get(API_ENDPOINTS.toilets, { params });
@@ -169,6 +185,18 @@ export const api = {
   // Get toilet by ID
   getToilet: async (id: string): Promise<Toilet> => {
     const response = await httpClient.get(`${API_ENDPOINTS.toilets}/${id}`);
+    return response.data;
+  },
+
+  // Check in at a toilet (for analytics by time of day; one per device per toilet per day)
+  checkInToilet: async (toiletId: string): Promise<{ ok: boolean; checked_in: boolean; message: string }> => {
+    const cfg = await api.withDeviceHeaders();
+    const auth = await api.getAuthHeaders();
+    const response = await httpClient.post(
+      `${API_ENDPOINTS.toilets}/${toiletId}/checkin`,
+      {},
+      { headers: { ...cfg.headers, ...auth } }
+    );
     return response.data;
   },
 

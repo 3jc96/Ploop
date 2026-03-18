@@ -177,6 +177,8 @@ const MapScreen: React.FC = () => {
   const [filterFreeOnly, setFilterFreeOnly] = useState(false);
   const [filterBidetOnly, setFilterBidetOnly] = useState(false);
   const [minConfidence, setMinConfidence] = useState<number>(0);
+  const [superToilet, setSuperToilet] = useState<{ toilet: Toilet; region: string } | null>(null);
+  const [superToiletDismissed, setSuperToiletDismissed] = useState(false);
   const [listTab, setListTab] = useState<'nearby' | 'saved' | 'lists'>('nearby');
   const [nearbyListLimit, setNearbyListLimit] = useState(10);
   const [collections, setCollections] = useState<Array<{ id: string; name: string; toilets: Array<Pick<Toilet, 'id' | 'name' | 'address' | 'latitude' | 'longitude'>>; createdAt: number }>>([]);
@@ -525,6 +527,27 @@ const MapScreen: React.FC = () => {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps -- getLocationAndToilets is stable; only re-run when simulateChinaLocation or preload changes
   }, [simulateChinaLocation, preload]);
+
+  // Fetch Super Toilet of the Day when we have location
+  useEffect(() => {
+    const coords = simulateChinaLocation ? BEIJING_COORDS : location?.coords;
+    if (!coords) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+        const result = await api.getSuperToiletOfTheDay({
+          latitude: coords.latitude,
+          longitude: coords.longitude,
+          timezone: tz,
+        });
+        if (!cancelled && result) setSuperToilet({ toilet: result.toilet, region: result.region });
+      } catch {
+        // ignore – super toilet is optional
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [location?.coords?.latitude, location?.coords?.longitude, simulateChinaLocation, BEIJING_COORDS]);
 
   // When we first get real location (or simulate China), fly map to user (from zoomed-out placeholder)
   const hasAnimatedToUserRef = useRef(false);
@@ -1756,6 +1779,38 @@ const MapScreen: React.FC = () => {
         <View style={[styles.loadingBanner, { top: Math.max(insets.top, 8) + 8 }]}>
           <LoadingBannerWithTrivia context="location" onRetry={getLocationAndToilets} />
         </View>
+      )}
+
+      {/* Super Toilet of the Day banner - below search bar */}
+      {!navigationActive && superToilet && !superToiletDismissed && !loading && (
+        <TouchableOpacity
+          style={[styles.superToiletBanner, { top: Math.max(insets.top, 8) + 8 + 48 + 8 }]}
+          onPress={() => {
+            setSelectedToilet(superToilet.toilet);
+            setSuperToiletDismissed(true);
+            (navigation as any).navigate('ToiletDetails', { toiletId: superToilet.toilet.id });
+          }}
+          activeOpacity={0.85}
+        >
+          <View style={styles.superToiletBannerContent}>
+            <Text style={styles.superToiletBannerLabel}>🏆 {t('superToiletOfTheDay')}</Text>
+            <Text style={styles.superToiletBannerName} numberOfLines={1}>{superToilet.toilet.name}</Text>
+            <Text style={styles.superToiletBannerRegion}>
+              {t('superToiletBanner').replace('{region}', superToilet.region)}
+            </Text>
+            {typeof superToilet.toilet.confidence_score === 'number' && (
+              <Text style={styles.superToiletBannerScore}>
+                {t('ploopScore')} {superToilet.toilet.confidence_score}
+              </Text>
+            )}
+          </View>
+          <TouchableOpacity
+            style={styles.superToiletBannerDismiss}
+            onPress={(e) => { e.stopPropagation(); setSuperToiletDismissed(true); }}
+          >
+            <Text style={styles.superToiletBannerDismissText}>✕</Text>
+          </TouchableOpacity>
+        </TouchableOpacity>
       )}
 
       {/* Tap-away overlay: dismiss keyboard and search dropdown */}
@@ -3400,6 +3455,25 @@ const styles = StyleSheet.create({
   backendBannerUrl: { fontSize: 11, color: '#94a3b8', fontFamily: 'monospace', marginBottom: 10 },
   backendBannerDismiss: { alignSelf: 'flex-end', paddingVertical: 6, paddingHorizontal: 12 },
   backendBannerDismissText: { fontSize: 14, color: '#60a5fa', fontWeight: '600' },
+  superToiletBanner: {
+    position: 'absolute',
+    left: 12,
+    right: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#0f172a',
+    borderRadius: 12,
+    padding: 12,
+    zIndex: 50,
+    ...Platform.select({ ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 6 }, android: { elevation: 6 } }),
+  },
+  superToiletBannerContent: { flex: 1 },
+  superToiletBannerLabel: { fontSize: 11, color: '#94a3b8', marginBottom: 2 },
+  superToiletBannerName: { fontSize: 15, fontWeight: '600', color: '#f8fafc' },
+  superToiletBannerRegion: { fontSize: 12, color: '#94a3b8', marginTop: 2 },
+  superToiletBannerScore: { fontSize: 12, color: '#38bdf8', marginTop: 2, fontWeight: '600' },
+  superToiletBannerDismiss: { padding: 8 },
+  superToiletBannerDismissText: { fontSize: 16, color: '#64748b' },
   searchErrorBanner: {
     padding: 14,
     backgroundColor: '#fef2f2',

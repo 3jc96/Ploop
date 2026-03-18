@@ -9,7 +9,8 @@
     "start": "node dist/server.js",
     "migrate": "ts-node src/migrations/run.ts",
     "import-toilets": "ts-node scripts/import-toilets-to-render.ts",
-    "set-johor-bahru-bidet": "ts-node scripts/set-johor-bahru-bidet.ts"
+    "set-johor-bahru-bidet": "ts-node scripts/set-johor-bahru-bidet.ts",
+    "backfill-city": "ts-node scripts/backfill-city.ts"
   },
   "keywords": [
     "toilet",

@@ -2,7 +2,7 @@ import express, { Request, Response } from 'express';
 import '../types/auth';
 import { body, param, query, validationResult } from 'express-validator';
 import pool from '../config/database';
-import { requireAuth } from '../middleware/auth';
+import { requireAuth, optionalAuth } from '../middleware/auth';
 import { checkDuplicate } from '../utils/duplicateDetection';
 import { CreateToiletRequest, UpdateToiletRequest, NearbyToiletsQuery } from '../types/toilet';
 import multer from 'multer';
@@ -10,8 +10,12 @@ import path from 'path';
 import fs from 'fs';
 import { v4 as uuidv4 } from 'uuid';
 import stringSimilarity from 'string-similarity';
+import { reverseGeocode, getTimezoneForCity } from '../utils/geocode';
 
 const router = express.Router();
+
+const SUPER_TOILET_MIN_CONFIDENCE = 75;
+const SUPER_TOILET_MIN_REVIEWS = 3;
 
 // Fetch a toilet by Google Place ID (for POI-tap consistency)
 router.get(
@@ -229,6 +233,148 @@ router.get(
   }
 );
 
+// Super Toilet of the Day: highest confidence in the region (city), rotates at midnight local time
+router.get(
+  '/super-toilet-of-the-day',
+  [
+    query('city').optional().isString().trim().notEmpty(),
+    query('latitude').optional().isFloat({ min: -90, max: 90 }),
+    query('longitude').optional().isFloat({ min: -180, max: 180 }),
+    query('timezone').optional().isString().trim().notEmpty(),
+  ],
+  async (req: Request, res: Response) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
+      }
+      const { city: cityParam, latitude, longitude, timezone: tzParam } = req.query as any;
+
+      let city: string | null = cityParam?.trim() || null;
+      let timezone = tzParam?.trim() || 'UTC';
+
+      if (!city && latitude != null && longitude != null) {
+        const geo = await reverseGeocode(parseFloat(latitude), parseFloat(longitude));
+        city = geo.city;
+        if (city && !tzParam) timezone = getTimezoneForCity(city);
+      }
+
+      if (!city) {
+        return res.status(400).json({ error: 'Provide city or latitude+longitude to determine region' });
+      }
+
+      const dateStr = getDateInTimezone(timezone);
+      const seed = simpleHash(`${city.toLowerCase()}:${dateStr}`);
+
+      let result;
+      try {
+        result = await pool.query(
+        `
+        SELECT 
+          t.*,
+          COALESCE(rp.active_reports, 0) as active_reports,
+          COALESCE(rp.report_summary, '[]'::jsonb) as report_summary,
+          COALESCE(
+            json_agg(
+              json_build_object(
+                'id', tp.id,
+                'photo_url', tp.photo_url,
+                'uploaded_at', tp.uploaded_at
+              )
+            ) FILTER (WHERE tp.id IS NOT NULL),
+            '[]'
+          ) as photos
+        FROM toilets t
+        LEFT JOIN (
+          SELECT
+            toilet_id,
+            COUNT(*) FILTER (WHERE expires_at > now())::int as active_reports,
+            COALESCE(
+              jsonb_agg(
+                jsonb_build_object(
+                  'type', report_type,
+                  'note', note,
+                  'created_at', created_at,
+                  'expires_at', expires_at
+                )
+              ) FILTER (WHERE expires_at > now()),
+              '[]'::jsonb
+            ) as report_summary
+          FROM toilet_reports
+          GROUP BY toilet_id
+        ) rp ON rp.toilet_id = t.id
+        LEFT JOIN toilet_photos tp ON t.id = tp.toilet_id
+        WHERE t.is_active = true
+          AND (t.city ILIKE $1 OR t.city ILIKE $2)
+          AND COALESCE(t.total_reviews, 0) >= $3
+          AND COALESCE(rp.active_reports, 0) = 0
+        GROUP BY t.id, rp.active_reports, rp.report_summary
+        `,
+        [city, `%${city}%`, SUPER_TOILET_MIN_REVIEWS]
+      );
+      } catch (e: any) {
+        if (e?.code === '42703') {
+          return res.status(404).json({ error: 'Super toilet feature requires database migration (city column)' });
+        }
+        throw e;
+      }
+
+      let toilets = result.rows.map((row) => {
+        const { photos, active_reports, report_summary, ...toilet } = row;
+        const confidenceBase = computeConfidenceScore(toilet);
+        const reportPenalty = Math.min(35, (parseInt(active_reports || '0', 10) || 0) * 8);
+        const confidence_score = Math.max(0, Math.min(100, confidenceBase - reportPenalty));
+        return {
+          ...toilet,
+          photos: photos || [],
+          confidence_score,
+          last_verified_at: toilet.updated_at,
+          active_reports: parseInt(active_reports || '0', 10) || 0,
+          report_summary: report_summary || [],
+        };
+      });
+
+      toilets = toilets.filter((t: any) => (t.confidence_score || 0) >= SUPER_TOILET_MIN_CONFIDENCE);
+      toilets.sort((a: any, b: any) => (b.confidence_score || 0) - (a.confidence_score || 0));
+
+      if (toilets.length === 0) {
+        return res.status(404).json({ error: 'No super toilet found for this region today' });
+      }
+
+      const topScore = toilets[0].confidence_score;
+      const topGroup = toilets.filter((t: any) => (t.confidence_score || 0) === topScore);
+      const idx = seed % topGroup.length;
+      const chosen = topGroup[idx];
+
+      res.json({
+        toilet: chosen,
+        region: city,
+        date: dateStr,
+      });
+    } catch (error) {
+      console.error('Error fetching super toilet:', error);
+      res.status(500).json({ error: 'Failed to fetch super toilet' });
+    }
+  }
+);
+
+function getDateInTimezone(tz: string): string {
+  try {
+    return new Date().toLocaleDateString('en-CA', { timeZone: tz }); // YYYY-MM-DD
+  } catch {
+    return new Date().toISOString().slice(0, 10);
+  }
+}
+
+function simpleHash(str: string): number {
+  let h = 0;
+  for (let i = 0; i < str.length; i++) {
+    h = (h << 5) - h + str.charCodeAt(i);
+    h |= 0;
+  }
+  return Math.abs(h);
+}
+
 // Get toilet by ID
 router.get(
   '/:id',
@@ -275,6 +421,47 @@ router.get(
     } catch (error) {
       console.error('Error fetching toilet:', error);
       res.status(500).json({ error: 'Failed to fetch toilet' });
+    }
+  }
+);
+
+// Check in at a toilet (for analytics by time of day; one per device per toilet per day)
+router.post(
+  '/:id/checkin',
+  [param('id').isUUID()],
+  optionalAuth,
+  async (req: Request, res: Response) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+      const deviceId = (req.header('x-ploop-device-id') || req.header('X-Ploop-Device-Id') || '').trim();
+      if (!deviceId) return res.status(400).json({ error: 'Missing X-Ploop-Device-Id header' });
+      const { id: toiletId } = req.params;
+      const userId = (req as any).user?.id || null;
+
+      const existing = await pool.query(
+        `SELECT 1 FROM toilet_checkins WHERE toilet_id = $1 AND device_id = $2 AND checked_in_at::date = CURRENT_DATE`,
+        [toiletId, deviceId]
+      );
+      if (existing.rows.length > 0) {
+        return res.status(201).json({ ok: true, checked_in: false, message: 'Already checked in today' });
+      }
+
+      const id = uuidv4();
+      await pool.query(
+        `INSERT INTO toilet_checkins (id, toilet_id, device_id, user_id) VALUES ($1, $2, $3, $4)`,
+        [id, toiletId, deviceId, userId]
+      );
+      res.status(201).json({ ok: true, checked_in: true, message: 'Checked in' });
+    } catch (e: any) {
+      if (e?.code === '23505') {
+        return res.status(201).json({ ok: true, checked_in: false, message: 'Already checked in today' });
+      }
+      if (e?.code === '42703' || e?.code === '42P01') {
+        return res.status(500).json({ error: 'Check-in feature requires database migration' });
+      }
+      console.error('Error checking in:', e);
+      res.status(500).json({ error: 'Failed to check in' });
     }
   }
 );
@@ -484,7 +671,15 @@ router.post(
       // Normalize name for duplicate detection
       const normalizedName = data.name.toLowerCase().trim().replace(/\s+/g, ' ');
 
-      // Insert toilet (include has_baby_changing, has_family_room if columns exist)
+      let city: string | null = null;
+      try {
+        const geo = await reverseGeocode(data.latitude, data.longitude);
+        city = geo.city;
+      } catch (e) {
+        console.warn('[toilets] reverseGeocode for city failed:', e);
+      }
+
+      // Insert toilet (include has_baby_changing, has_family_room, city)
       const result = await pool.query(
         `
         INSERT INTO toilets (
@@ -492,9 +687,9 @@ router.post(
           has_toilet_paper, has_bidet, has_seat_warmer, has_hand_soap,
           has_baby_changing, has_family_room,
           number_of_stalls, toilet_type, pay_to_enter, entry_fee,
-          wheelchair_accessible, created_by, normalized_name, google_place_id
+          wheelchair_accessible, created_by, normalized_name, google_place_id, city
         )
-        VALUES ($1, $2, $3, $4, ST_SetSRID(ST_MakePoint($4, $3), 4326)::geography, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+        VALUES ($1, $2, $3, $4, ST_SetSRID(ST_MakePoint($4, $3), 4326)::geography, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
         RETURNING *
         `,
         [
@@ -516,6 +711,7 @@ router.post(
           data.created_by || null,
           normalizedName,
           (data as any).google_place_id || null,
+          city,
         ]
       );
 

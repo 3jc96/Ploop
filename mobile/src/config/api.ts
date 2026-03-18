@@ -112,6 +112,7 @@ if (__DEV__) {
 
 export const API_ENDPOINTS = {
   toilets: `${API_BASE_URL}/api/toilets`,
+  superToiletOfTheDay: `${API_BASE_URL}/api/toilets/super-toilet-of-the-day`,
   toiletByPlace: (placeId: string) => `${API_BASE_URL}/api/toilets/by-place/${encodeURIComponent(placeId)}`,
   checkDuplicate: `${API_BASE_URL}/api/toilets/check-duplicate`,
   searchNames: `${API_BASE_URL}/api/toilets/search-names`,

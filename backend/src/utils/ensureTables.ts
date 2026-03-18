@@ -86,6 +86,21 @@ export async function ensureFeatureTables(): Promise<void> {
     ON analytics_events (event_name, created_at);
   `);
 
+  // Toilet check-ins: for analytics by time of day (one per device per toilet per day)
+  await safe(`
+    CREATE TABLE IF NOT EXISTS toilet_checkins (
+      id uuid PRIMARY KEY,
+      toilet_id uuid NOT NULL,
+      device_id text NOT NULL,
+      user_id uuid NULL,
+      checked_in_at timestamptz NOT NULL DEFAULT now()
+    );
+  `);
+  await safe(`
+    CREATE INDEX IF NOT EXISTS idx_toilet_checkins_toilet
+    ON toilet_checkins (toilet_id, checked_in_at);
+  `);
+
   // Bind toilets to Google Places POIs + indexes for scale
   await safe(`
     DO $$
@@ -95,7 +110,9 @@ export async function ensureFeatureTables(): Promise<void> {
         ALTER TABLE toilets ADD COLUMN IF NOT EXISTS has_baby_changing boolean DEFAULT false;
         ALTER TABLE toilets ADD COLUMN IF NOT EXISTS has_family_room boolean DEFAULT false;
         ALTER TABLE toilets ADD COLUMN IF NOT EXISTS last_serviced_at timestamptz;
+        ALTER TABLE toilets ADD COLUMN IF NOT EXISTS city text;
         CREATE INDEX IF NOT EXISTS idx_toilets_google_place_id ON toilets (google_place_id);
+        CREATE INDEX IF NOT EXISTS idx_toilets_city ON toilets (city) WHERE city IS NOT NULL;
         CREATE INDEX IF NOT EXISTS idx_toilets_active ON toilets (is_active) WHERE is_active = true;
       END IF;
     END $$;

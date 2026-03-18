@@ -75,6 +75,26 @@ router.get(
       ]);
 
       const totals = totalsRes.rows[0] || {};
+      let checkInsByHour: Array<{ hour: number; count: number }> = [];
+      let checkInsInRange = 0;
+      let totalCheckins = 0;
+      try {
+        const [checkInsHourRes, checkInsRangeRes, checkInsTotalRes] = await Promise.all([
+          pool.query(
+            `SELECT EXTRACT(HOUR FROM checked_in_at)::int AS hour, COUNT(*)::int AS count
+             FROM toilet_checkins WHERE checked_in_at >= $1 AND checked_in_at <= $2
+             GROUP BY 1 ORDER BY 1`,
+            [fromStr, toStr]
+          ),
+          pool.query('SELECT COUNT(*)::int AS c FROM toilet_checkins WHERE checked_in_at >= $1 AND checked_in_at <= $2', [fromStr, toStr]),
+          pool.query('SELECT COUNT(*)::int AS c FROM toilet_checkins'),
+        ]);
+        checkInsByHour = (checkInsHourRes.rows || []).map((r: any) => ({ hour: r.hour, count: r.count }));
+        checkInsInRange = checkInsRangeRes.rows[0]?.c ?? 0;
+        totalCheckins = checkInsTotalRes.rows[0]?.c ?? 0;
+      } catch {
+        // toilet_checkins table may not exist yet
+      }
       const reviewsSeries = (reviewsSeriesRes.rows || []).map((r: any) => ({ period: r.period, count: r.count }));
       const toiletsSeries = (toiletsSeriesRes.rows || []).map((r: any) => ({ period: r.period, count: r.count }));
       const usersSeries = (usersSeriesRes.rows || []).map((r: any) => ({ period: r.period, count: r.count }));
@@ -97,12 +117,15 @@ router.get(
           toilets: totals.total_toilets ?? 0,
           reviews: totals.total_reviews ?? 0,
           favorites: totals.total_favorites ?? 0,
+          checkins: totalCheckins,
         },
         inRange: {
           reviews: reviewsInRange.rows[0]?.c ?? 0,
           toilets: toiletsInRange.rows[0]?.c ?? 0,
           users: usersInRange.rows[0]?.c ?? 0,
+          checkins: checkInsInRange,
         },
+        checkInsByHour,
         series: {
           reviews: reviewsSeries,
           toilets: toiletsSeries,
