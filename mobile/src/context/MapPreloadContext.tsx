@@ -9,6 +9,8 @@ import type * as Location from 'expo-location';
 export interface MapPreloadData {
   location: Location.LocationObject;
   toilets: Toilet[];
+  /** When true, coords are a fallback (e.g. default); MapScreen will refetch when real location arrives */
+  preliminary?: boolean;
 }
 
 const MapPreloadContext = createContext<MapPreloadData | null>(null);

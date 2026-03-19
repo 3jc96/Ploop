@@ -12,6 +12,9 @@ build/
 .env.local
 .env.*.local
 
+# Google Service Account key (do not commit)
+ploop-490618-516fd42bc5d2.json
+
 # IDE
 .vscode/
 .idea/

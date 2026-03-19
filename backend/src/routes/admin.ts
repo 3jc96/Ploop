@@ -284,6 +284,61 @@ router.delete(
   }
 );
 
+// GET /api/admin/diagnostics – load diagnostics (Android vs iOS timing)
+router.get('/diagnostics', async (req: Request, res: Response) => {
+  try {
+    const limit = Math.min(Number(req.query?.limit) || 100, 500);
+    const platform = req.query?.platform as string | undefined;
+    const result = platform
+      ? await pool.query(
+          `SELECT id, device_id, platform, permission_ms, location_source, location_ms, api_ms, total_ms, success, created_at
+           FROM load_diagnostics WHERE platform = $2 ORDER BY created_at DESC LIMIT $1`,
+          [limit, platform]
+        )
+      : await pool.query(
+          `SELECT id, device_id, platform, permission_ms, location_source, location_ms, api_ms, total_ms, success, created_at
+           FROM load_diagnostics ORDER BY created_at DESC LIMIT $1`,
+          [limit]
+        );
+    const summary = await pool.query(
+      `SELECT platform,
+              COUNT(*)::int AS count,
+              ROUND(AVG(permission_ms))::int AS avg_perm_ms,
+              ROUND(AVG(location_ms))::int AS avg_loc_ms,
+              ROUND(AVG(api_ms))::int AS avg_api_ms,
+              ROUND(AVG(total_ms))::int AS avg_total_ms
+       FROM load_diagnostics
+       WHERE created_at >= now() - interval '7 days'
+       GROUP BY platform`
+    );
+    res.json({
+      summary: summary.rows,
+      recent: result.rows,
+    });
+  } catch (e) {
+    console.error('Admin get diagnostics:', e);
+    res.status(500).json({ error: 'Failed to load diagnostics' });
+  }
+});
+
+// GET /api/admin/crash-reports – recent crash reports
+router.get('/crash-reports', async (_req: Request, res: Response) => {
+  try {
+    const limit = Math.min(Number((_req as any).query?.limit) || 50, 200);
+    const result = await pool.query(
+      `SELECT id, device_id, platform, app_version, error_message, error_stack, component_stack, created_at
+       FROM crash_reports
+       ORDER BY created_at DESC
+       LIMIT $1`,
+      [limit]
+    );
+    res.json({ crashReports: result.rows });
+  } catch (e) {
+    console.error('Admin get crash reports:', e);
+    res.status(500).json({ error: 'Failed to load crash reports' });
+  }
+});
+
 // POST /api/admin/register-push-token – store Expo push token for suggestion notifications
 router.post(
   '/register-push-token',

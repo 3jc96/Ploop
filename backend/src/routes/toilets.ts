@@ -125,6 +125,7 @@ router.get(
     query('has_bidet').optional().isBoolean(),
   ],
   async (req: Request, res: Response) => {
+    const startMs = Date.now();
     try {
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
@@ -225,9 +226,17 @@ router.get(
         toilets = toilets.filter((t: any) => (typeof t.confidence_score === 'number' ? t.confidence_score : 0) >= min);
       }
 
+      const elapsed = Date.now() - startMs;
+      if (elapsed > 2000) {
+        console.warn(`[Toilets] Slow nearby request: ${elapsed}ms (lat=${latitude}, lng=${longitude}, radius=${radius})`);
+      }
       res.json({ toilets, count: toilets.length });
     } catch (error) {
+      const elapsed = Date.now() - startMs;
       console.error('Error fetching nearby toilets:', error);
+      if (elapsed > 2000) {
+        console.warn(`[Toilets] Failed after ${elapsed}ms`);
+      }
       res.status(500).json({ error: 'Failed to fetch toilets' });
     }
   }

@@ -93,12 +93,16 @@ function createClient(): AxiosInstance {
       if (__DEV__) {
         const reqId = (error.config as any)?._reqId;
         const status = error.response?.status;
-        const url = error.config?.url ?? '';
+        const url = String(error.config?.url ?? '');
+        const fullUrl = error.config?.baseURL ? `${error.config.baseURL}${url}` : url;
         // 404 on by-place is expected (place not in DB yet) – don't log as error
-        if (status === 404 && typeof url === 'string' && url.includes('/by-place/')) {
+        if (status === 404 && url.includes('/by-place/')) {
           console.log(`[Ploop HTTP] 404 (not in DB) ${url} [${reqId}]`);
+        } else if (!error.response && (url.includes('/diagnostics') || url.includes('/crash-reports'))) {
+          // Diagnostics/crash-reports are optional – log as warn when backend unreachable
+          console.warn(`[Ploop HTTP] Optional request failed (backend unreachable): ${fullUrl} [${reqId}]`);
         } else {
-          console.error(`[Ploop HTTP] ✗ ${status ?? 'NETWORK'} ${url} [${reqId}]`, error.message);
+          console.error(`[Ploop HTTP] ✗ ${status ?? 'NETWORK'} ${fullUrl} [${reqId}]`, error.message);
         }
       }
       return Promise.reject(error);

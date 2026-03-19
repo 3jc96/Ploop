@@ -20,7 +20,8 @@ import { getErrorMessage } from '../utils/engagement';
 
 // Use a stable redirect URI so Google Console only needs 2 entries:
 // - Web: http://localhost:8081/redirect (explicit path avoids root path ambiguity)
-// - Native: Expo auth proxy (https://auth.expo.io/@owner/slug)
+// - Native: Always use Expo auth proxy (https://auth.expo.io/@owner/slug) to avoid
+//   Android "dismiss" bug when redirecting to ploop:// (expo-auth-session issue #23781)
 function getGoogleRedirectUri(): string {
   if (Platform.OS === 'web' && typeof window !== 'undefined') {
     const origin = window.location.origin;
@@ -29,13 +30,9 @@ function getGoogleRedirectUri(): string {
       : origin;
     return `${base}/redirect`;
   }
-  try {
-    return AuthSession.getRedirectUrl();
-  } catch {
-    const owner = (Constants.expoConfig as any)?.owner ?? 'jcrs96';
-    const slug = (Constants.expoConfig as any)?.slug ?? 'ploop';
-    return `https://auth.expo.io/@${owner}/${slug}`;
-  }
+  const owner = (Constants.expoConfig as any)?.owner ?? 'jcrs96';
+  const slug = (Constants.expoConfig as any)?.slug ?? 'ploop';
+  return `https://auth.expo.io/@${owner}/${slug}`;
 }
 
 // Do not require expo-web-browser or expo-apple-authentication at top level:
@@ -139,7 +136,11 @@ export default function LoginScreen() {
         }
         urlToOpen = `${redirectUri}/start?${new URLSearchParams({ authUrl, returnUrl }).toString()}`;
       }
-      const result = await promptAsync(urlToOpen ? { url: urlToOpen } : undefined);
+      const promptOptions = urlToOpen ? { url: urlToOpen } : undefined;
+      if (Platform.OS === 'android' && promptOptions) {
+        (promptOptions as any).showInRecents = true;
+      }
+      const result = await promptAsync(promptOptions);
       if (result.type === 'success' && result.params?.code) {
         const ok = await loginWithGoogle({
           code: result.params.code,

@@ -4,7 +4,7 @@
  * MapScreen consumes preloaded data via MapPreloadContext to skip its own loading.
  */
 import React, { useEffect, useState, useRef, useCallback } from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Platform } from 'react-native';
 import * as Location from 'expo-location';
 import { api, type Toilet } from '../services/api';
 import { searchNearbyToilets as searchGaodeToilets } from '../services/gaodePoi';
@@ -12,8 +12,20 @@ import { useLanguage } from '../context/LanguageContext';
 import { useMapProvider } from '../context/MapProviderContext';
 import { MapPreloadProvider, type MapPreloadData } from '../context/MapPreloadContext';
 import { getOxymoronicTagline } from '../utils/engagement';
+import {
+  startLoadDiagnostics,
+  markPermissionDone,
+  startLocationPhase,
+  markLocationDone,
+  startApiPhase,
+  markApiDone,
+  finishLoadDiagnostics,
+  sendLoadDiagnosticsToBackend,
+} from '../utils/loadDiagnostics';
 
 const LOCATION_TIMEOUT_MS = 6000;
+// Fallback when getLastKnownPositionAsync returns null (common on Android) – show map fast, refetch when GPS locks
+const FALLBACK_COORDS = { latitude: 37.7749, longitude: -122.4194 };
 
 function metersBetween(
   a: { latitude: number; longitude: number },
@@ -39,6 +51,7 @@ export function AppLoadingGate({ children }: { children: React.ReactNode }) {
   const [loadStatus, setLoadStatus] = useState<'loading' | 'ready' | 'failed' | 'denied'>('loading');
   const [loadAttempts, setLoadAttempts] = useState(0);
   const [loadPhase, setLoadPhase] = useState<'location' | 'toilets'>('location');
+  const [loadProgress, setLoadProgress] = useState(0);
   const [preloadData, setPreloadData] = useState<MapPreloadData | null>(null);
   const cancelledRef = useRef(false);
 
@@ -46,12 +59,18 @@ export function AppLoadingGate({ children }: { children: React.ReactNode }) {
     setLoadStatus('loading');
     setLoadAttempts((a) => a + 1);
     setLoadPhase('location');
+    setLoadProgress(0);
     cancelledRef.current = false;
+    startLoadDiagnostics();
 
     let cancelled = () => cancelledRef.current;
     try {
       if (simulateChinaLocation) {
         try {
+          markPermissionDone();
+          if (!cancelled()) setLoadProgress(25);
+          startApiPhase();
+          if (!cancelled()) setLoadProgress(50);
           const coords = BEIJING_COORDS;
           const mergeWithGaode = mapProvider === 'amap';
           const [backendRes, gaodeToilets] = await Promise.all([
@@ -89,14 +108,19 @@ export function AppLoadingGate({ children }: { children: React.ReactNode }) {
               .sort((a, b) => (a.distance ?? 999999) - (b.distance ?? 999999));
           };
           const toilets = mergeWithGaode ? mergeAndSort(backendToilets, gaodeToilets) : backendToilets;
+          markApiDone();
+          if (!cancelled()) setLoadProgress(100);
           if (!cancelled()) {
             setPreloadData({
               location: { coords } as Location.LocationObject,
               toilets,
             });
             setLoadStatus('ready');
+            const diag = finishLoadDiagnostics(true);
+            sendLoadDiagnosticsToBackend(diag);
           }
         } catch {
+          markApiDone();
           if (!cancelled()) {
             setPreloadData({
               location: { coords: BEIJING_COORDS } as Location.LocationObject,
@@ -104,50 +128,84 @@ export function AppLoadingGate({ children }: { children: React.ReactNode }) {
             });
             setLoadStatus('ready');
           }
+          const diag = finishLoadDiagnostics(true);
+          sendLoadDiagnosticsToBackend(diag);
         }
         return;
       }
 
       try {
         const { status } = await Location.requestForegroundPermissionsAsync();
+        markPermissionDone();
+        if (!cancelled()) setLoadProgress(25);
         if (cancelled()) return;
         if (status !== 'granted') {
           setLoadStatus('denied');
           setPreloadData(null);
+          const diag = finishLoadDiagnostics(false);
+          sendLoadDiagnosticsToBackend(diag);
           return;
         }
 
+        startLocationPhase();
         let coords: { latitude: number; longitude: number } | null = null;
+        let locationSource: 'lastKnown' | 'currentPosition' | 'timeout' = 'currentPosition';
+        // Android: use longer maxAge to increase cache hit (getLastKnown often null on Android)
+        const lastKnownMaxAge = Platform.OS === 'android' ? 300000 : 60000; // 5 min vs 1 min
         try {
-          const lastKnown = await Location.getLastKnownPositionAsync({});
+          const lastKnown = await Location.getLastKnownPositionAsync({ maxAge: lastKnownMaxAge });
           if (lastKnown?.coords) {
             coords = {
               latitude: lastKnown.coords.latitude,
               longitude: lastKnown.coords.longitude,
             };
+            locationSource = 'lastKnown';
           }
         } catch {
           // ignore
         }
+        let preliminary = false;
         if (!coords) {
-          const pos = await Promise.race([
-            Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
-            new Promise<never>((_, reject) =>
-              setTimeout(() => reject(new Error('timeout')), LOCATION_TIMEOUT_MS)
-            ),
-          ]);
-          if (pos?.coords) {
-            coords = { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
+          // Android: when lastKnown is null, don't block 5–10s. Use fallback coords, show map fast, refetch when GPS locks.
+          if (Platform.OS === 'android') {
+            coords = FALLBACK_COORDS;
+            preliminary = true;
+            markLocationDone('timeout'); // we're not waiting for GPS
+          } else {
+            const accuracy = Location.Accuracy.Balanced;
+            try {
+              const pos = await Promise.race([
+                Location.getCurrentPositionAsync({ accuracy }),
+                new Promise<never>((_, reject) =>
+                  setTimeout(() => reject(new Error('timeout')), LOCATION_TIMEOUT_MS)
+                ),
+              ]);
+              if (pos?.coords) {
+                coords = { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
+                locationSource = 'currentPosition';
+              }
+            } catch {
+              locationSource = 'timeout';
+              coords = FALLBACK_COORDS;
+              preliminary = true;
+            }
+            markLocationDone(locationSource);
           }
+        } else {
+          markLocationDone(locationSource);
         }
 
         if (cancelled() || !coords) {
           setLoadStatus('denied');
           setPreloadData(null);
+          const diag = finishLoadDiagnostics(false);
+          sendLoadDiagnosticsToBackend(diag);
           return;
         }
 
+        if (!cancelled()) setLoadProgress(50);
         setLoadPhase('toilets');
+        startApiPhase();
         const mergeWithGaode = mapProvider === 'amap';
         const [backendRes, gaodeToilets] = await Promise.all([
           api.getNearbyToilets({
@@ -184,18 +242,26 @@ export function AppLoadingGate({ children }: { children: React.ReactNode }) {
             .sort((a, b) => (a.distance ?? 999999) - (b.distance ?? 999999));
         };
         const toilets = mergeWithGaode ? mergeAndSort(backendToilets, gaodeToilets) : backendToilets;
+        markApiDone();
+        if (!cancelled()) setLoadProgress(100);
 
         if (!cancelled()) {
           setPreloadData({
             location: { coords } as Location.LocationObject,
             toilets,
+            preliminary: preliminary || undefined,
           });
           setLoadStatus('ready');
+          const diag = finishLoadDiagnostics(true);
+          sendLoadDiagnosticsToBackend(diag);
         }
       } catch {
+        markApiDone();
         if (!cancelled()) {
           setLoadStatus('failed');
           setPreloadData(null);
+          const diag = finishLoadDiagnostics(false);
+          sendLoadDiagnosticsToBackend(diag);
         }
       }
     } finally {
@@ -275,6 +341,10 @@ export function AppLoadingGate({ children }: { children: React.ReactNode }) {
 
       {loadStatus === 'loading' ? (
         <>
+          <View style={styles.barTrack}>
+            <View style={[styles.barFill, { width: `${loadProgress}%` }]} />
+          </View>
+          <Text style={styles.percent}>{loadProgress}%</Text>
           <Text style={styles.message}>
             {loadAttempts > 1
               ? t('connectingAttempt').replace('{n}', String(loadAttempts))

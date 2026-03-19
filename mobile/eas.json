@@ -16,6 +16,9 @@
     },
     "preview": {
       "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_PLOOP_API_URL": "https://ploop-api.onrender.com"
+      },
       "android": {
         "buildType": "apk"
       }

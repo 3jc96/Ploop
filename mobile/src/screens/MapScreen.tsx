@@ -518,7 +518,8 @@ const MapScreen: React.FC = () => {
       setLocation(preload.location);
       setToilets(preload.toilets);
       setLoading(false);
-      hasEverReceivedLocationRef.current = true;
+      // When preliminary (fallback coords), don't set hasEverReceivedLocationRef – watch will refetch when real GPS arrives
+      if (!preload.preliminary) hasEverReceivedLocationRef.current = true;
       currentCoordsRef.current = preload.location.coords;
       lastLocationStateUpdateRef.current = { atMs: Date.now(), coords: preload.location.coords };
       startLocationWatch({ highAccuracy: false });
@@ -553,7 +554,8 @@ const MapScreen: React.FC = () => {
   const hasAnimatedToUserRef = useRef(false);
   useEffect(() => {
     if (simulateChinaLocation) hasAnimatedToUserRef.current = false;
-  }, [simulateChinaLocation]);
+    if (preload?.preliminary) hasAnimatedToUserRef.current = false; // wait for real GPS to animate
+  }, [simulateChinaLocation, preload?.preliminary]);
   useEffect(() => {
     const coords = simulateChinaLocation ? BEIJING_COORDS : location?.coords;
     if (coords && !hasAnimatedToUserRef.current && mapRef.current) {
@@ -987,9 +989,10 @@ const MapScreen: React.FC = () => {
       // one-shot request times out (common on simulator unless location is set).
       await startLocationWatch({ highAccuracy: false });
 
-      // Fast path: use last known position if available
+      // Fast path: use last known position if available (Android: longer maxAge for cache hit)
+      const lastKnownMaxAge = Platform.OS === 'android' ? 300000 : 60000;
       try {
-        const lastKnown = await Location.getLastKnownPositionAsync({});
+        const lastKnown = await Location.getLastKnownPositionAsync({ maxAge: lastKnownMaxAge });
         if (lastKnown) {
           setLocation(lastKnown);
           currentCoordsRef.current = { latitude: lastKnown.coords.latitude, longitude: lastKnown.coords.longitude };
@@ -1015,11 +1018,11 @@ const MapScreen: React.FC = () => {
 
       // Get fresh position in background (6s timeout); watch callback will also update when ready
       const LOCATION_TIMEOUT_MS = 6000;
+      // Android: use Accuracy.Low for faster first fix (Balanced can take 5–10s)
+      const accuracy = Platform.OS === 'android' ? Location.Accuracy.Low : Location.Accuracy.Balanced;
       try {
         const currentLocation = (await Promise.race([
-          Location.getCurrentPositionAsync({
-            accuracy: Location.Accuracy.Balanced,
-          }),
+          Location.getCurrentPositionAsync({ accuracy }),
           new Promise<never>((_, reject) =>
             setTimeout(() => reject(new Error('Location request timed out')), LOCATION_TIMEOUT_MS)
           ),
@@ -1298,19 +1301,26 @@ const MapScreen: React.FC = () => {
     const clusters: Array<{ key: string; latitude: number; longitude: number; count: number; toilets: Toilet[] }> = [];
     const singles: Toilet[] = [];
 
+    const superToiletId = superToilet?.toilet?.id;
+
     for (const [key, arr] of groups.entries()) {
-      if (arr.length <= 1) {
-        singles.push(arr[0]);
-        continue;
+      // Super Toilet of the Day: always show individually so it stands out
+      const superInGroup = superToiletId ? arr.find((t) => t.id === superToiletId) : null;
+      const rest = superInGroup ? arr.filter((t) => t.id !== superToiletId) : arr;
+
+      if (superInGroup) singles.push(superInGroup);
+      if (rest.length <= 1) {
+        if (rest.length === 1) singles.push(rest[0]);
+      } else {
+        const lat = rest.reduce((s, x) => s + x.latitude, 0) / rest.length;
+        const lng = rest.reduce((s, x) => s + x.longitude, 0) / rest.length;
+        clusters.push({ key, latitude: lat, longitude: lng, count: rest.length, toilets: rest });
       }
-      const lat = arr.reduce((s, x) => s + x.latitude, 0) / arr.length;
-      const lng = arr.reduce((s, x) => s + x.longitude, 0) / arr.length;
-      clusters.push({ key, latitude: lat, longitude: lng, count: arr.length, toilets: arr });
     }
 
     // When zoomed out, prioritize clusters over singles to reduce marker count.
     return { clusters, toilets: singles };
-  }, [renderRegion, toiletsToRenderOnMap, viewMode]);
+  }, [renderRegion, toiletsToRenderOnMap, viewMode, superToilet?.toilet?.id]);
 
   const nearbyToiletsSorted = useMemo(() => {
     const t = Array.isArray(toilets) ? toilets : [];
@@ -2014,33 +2024,44 @@ const MapScreen: React.FC = () => {
             </PloopMarker>
           ))}
 
-          {(mapMarkers?.toilets ?? []).map((toilet) => (
-            <PloopMarker
-              key={toilet.id}
-              coordinate={{
-                latitude: toilet.latitude,
-                longitude: toilet.longitude,
-              }}
-              tracksViewChanges={false}
-              onPress={(e) => {
-                if (e.stopPropagation) e.stopPropagation();
-                try {
-                  setSelectedToilet(toilet);
-                  setTappedLocation(null);
-                  api.track('toilet_selected', { source: 'map_marker', toiletId: toilet.id });
-                } catch (error) {
-                  console.error('Error selecting toilet:', error);
-                }
-              }}
-            >
-              <View style={styles.markerContainer}>
-                <Text style={styles.markerEmoji}>🚽</Text>
-                <View style={[styles.markerBadge, { backgroundColor: getMarkerColor(toilet) }]}>
-                  <View style={styles.markerBadgeInner} />
+          {(mapMarkers?.toilets ?? []).map((toilet) => {
+            const isSuperToilet = superToilet?.toilet?.id === toilet.id;
+            return (
+              <PloopMarker
+                key={toilet.id}
+                coordinate={{
+                  latitude: toilet.latitude,
+                  longitude: toilet.longitude,
+                }}
+                tracksViewChanges={false}
+                onPress={(e) => {
+                  if (e.stopPropagation) e.stopPropagation();
+                  try {
+                    setSelectedToilet(toilet);
+                    setTappedLocation(null);
+                    api.track('toilet_selected', { source: 'map_marker', toiletId: toilet.id });
+                  } catch (error) {
+                    console.error('Error selecting toilet:', error);
+                  }
+                }}
+              >
+                <View style={[styles.markerContainer, isSuperToilet && styles.superToiletMarkerContainer]}>
+                  <Text style={[styles.markerEmoji, isSuperToilet && styles.superToiletMarkerEmoji]}>
+                    {isSuperToilet ? '🏆' : '🚽'}
+                  </Text>
+                  <View
+                    style={[
+                      styles.markerBadge,
+                      { backgroundColor: isSuperToilet ? '#F59E0B' : getMarkerColor(toilet) },
+                      isSuperToilet && styles.superToiletMarkerBadge,
+                    ]}
+                  >
+                    <View style={styles.markerBadgeInner} />
+                  </View>
                 </View>
-              </View>
-            </PloopMarker>
-          ))}
+              </PloopMarker>
+            );
+          })}
         </PloopMapView>
         </View>
       )}
@@ -3010,6 +3031,7 @@ const MapScreen: React.FC = () => {
               <Pressable
                 style={({ pressed }) => [
                   styles.listItem,
+                  superToilet?.toilet?.id === (item as any).id && styles.listItemSuperToilet,
                   pressed && styles.listItemPressed,
                 ]}
                   onPress={async () => {
@@ -3034,7 +3056,10 @@ const MapScreen: React.FC = () => {
               >
                 <View style={styles.listItemContent}>
                   <View style={styles.listItemTopRow}>
-                    <Text style={styles.listItemName}>{parseToiletNameAndBadges(item.name).displayName || item.name}</Text>
+                    <Text style={styles.listItemName}>
+                      {superToilet?.toilet?.id === (item as any).id ? '🏆 ' : ''}
+                      {parseToiletNameAndBadges(item.name).displayName || item.name}
+                    </Text>
                     <Text style={styles.listItemMetaRight}>
                       {typeof item.confidence_score !== 'undefined' ? `${t('ploopScore')} ${formatPloopScore(item.confidence_score)}` : ''}
                       {!!item.active_reports ? ` • ${item.active_reports} rpt` : ''}
@@ -3535,6 +3560,24 @@ const styles = StyleSheet.create({
     flex: 1,
     borderRadius: 4,
   },
+  superToiletMarkerContainer: {
+    transform: [{ scale: 1.2 }],
+  },
+  superToiletMarkerEmoji: {
+    fontSize: 38,
+  },
+  superToiletMarkerBadge: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    borderWidth: 3,
+    borderColor: '#FCD34D',
+    shadowColor: '#F59E0B',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.6,
+    shadowRadius: 6,
+    elevation: 8,
+  },
   clusterBubble: {
     minWidth: 40,
     height: 40,
@@ -3847,6 +3890,11 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#f0f0f0',
     backgroundColor: '#fff',
+  },
+  listItemSuperToilet: {
+    backgroundColor: '#FFFBEB',
+    borderLeftWidth: 4,
+    borderLeftColor: '#F59E0B',
   },
   listItemPressed: {
     backgroundColor: '#f5f5f5',

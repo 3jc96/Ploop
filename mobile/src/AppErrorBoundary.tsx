@@ -1,5 +1,7 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { View, Text, Pressable, StyleSheet, Platform } from 'react-native';
+import Constants from 'expo-constants';
+import { api } from './services/api';
 
 interface Props {
   children: ReactNode;
@@ -21,6 +23,14 @@ export class AppErrorBoundary extends Component<Props, State> {
     if (__DEV__) {
       console.error('AppErrorBoundary caught:', error, errorInfo);
     }
+    const appVersion = Constants.expoConfig?.version ?? Constants.manifest?.version ?? 'unknown';
+    api.submitCrashReport({
+      errorMessage: error.message || 'Unknown error',
+      errorStack: error.stack ?? undefined,
+      componentStack: errorInfo.componentStack ?? undefined,
+      platform: Platform.OS,
+      appVersion,
+    });
   }
 
   handleReload = (): void => {

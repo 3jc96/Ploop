@@ -392,6 +392,16 @@ export const api = {
       const response = await httpClient.post(API_ENDPOINTS.adminRegisterPushToken, { token }, { headers: auth });
       return response.data;
     },
+    getDiagnostics: async (params?: { limit?: number; platform?: string }): Promise<{ summary: any[]; recent: any[] }> => {
+      const auth = await api.getAuthHeaders();
+      const response = await httpClient.get(API_ENDPOINTS.adminDiagnostics, { params: params || {}, headers: auth });
+      return response.data;
+    },
+    getCrashReports: async (params?: { limit?: number }): Promise<{ crashReports: any[] }> => {
+      const auth = await api.getAuthHeaders();
+      const response = await httpClient.get(API_ENDPOINTS.adminCrashReports, { params: params || {}, headers: auth });
+      return response.data;
+    },
   },
 
   // Submit suggestion (40 chars max, sent to admin email + push)
@@ -461,6 +471,40 @@ export const api = {
       await httpClient.post(API_ENDPOINTS.analytics, { event, payload, deviceId });
     } catch {
       // ignore analytics failures
+    }
+  },
+
+  /** Submit load diagnostics (permission, location, API timing) for admin dashboard */
+  submitLoadDiagnostics: async (d: {
+    platform: string;
+    permissionMs?: number;
+    locationSource?: string;
+    locationMs?: number;
+    apiMs?: number;
+    totalMs?: number;
+    success?: boolean;
+  }): Promise<void> => {
+    try {
+      const deviceId = await api.ensureDeviceId();
+      await httpClient.post(API_ENDPOINTS.diagnostics, { ...d, deviceId });
+    } catch {
+      // ignore
+    }
+  },
+
+  /** Submit crash report from AppErrorBoundary */
+  submitCrashReport: async (d: {
+    errorMessage: string;
+    errorStack?: string;
+    componentStack?: string;
+    platform?: string;
+    appVersion?: string;
+  }): Promise<void> => {
+    try {
+      const deviceId = await api.ensureDeviceId();
+      await httpClient.post(API_ENDPOINTS.crashReports, { ...d, deviceId });
+    } catch {
+      // ignore
     }
   },
 

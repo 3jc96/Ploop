@@ -1,5 +1,4 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { View, Text, ActivityIndicator } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as FileSystem from 'expo-file-system';
 import { translations, type Locale } from '../i18n/translations';
@@ -20,14 +19,12 @@ const LanguageContext = createContext<LanguageContextValue | null>(null);
 
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
   const [locale, setLocaleState] = useState<Locale>('en');
-  const [status, setStatus] = useState<LocaleStatus>('loading');
+  const [status, setStatus] = useState<LocaleStatus>('ready');
 
   useEffect(() => {
     AsyncStorage.getItem(STORAGE_KEY).then(async (s) => {
       if (s === 'zh' || s === 'en') {
         setLocaleState(s);
-        setStatus('ready');
-        // Ensure locale file exists for next app restart (map labels)
         try {
           const dir = FileSystem.documentDirectory;
           if (dir) await FileSystem.writeAsStringAsync(dir + LOCALE_FILE, s);
@@ -63,14 +60,7 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <LanguageContext.Provider value={{ locale, localeStatus: status, setLocale, t }}>
-      {status === 'loading' ? (
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#f5f5f5' }}>
-          <Text style={{ fontSize: 48, marginBottom: 8 }}>🚽</Text>
-          <ActivityIndicator size="large" color="#2196F3" />
-        </View>
-      ) : (
-        children
-      )}
+      {children}
     </LanguageContext.Provider>
   );
 }

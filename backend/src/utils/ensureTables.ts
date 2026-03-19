@@ -205,5 +205,38 @@ export async function ensureFeatureTables(): Promise<void> {
     );
   `);
   await safe(`CREATE UNIQUE INDEX IF NOT EXISTS idx_admin_push_tokens_token ON admin_push_tokens (token);`);
+
+  // Load diagnostics: per-session timing (perm, location, api) for Android vs iOS debugging
+  await safe(`
+    CREATE TABLE IF NOT EXISTS load_diagnostics (
+      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      device_id text NULL,
+      platform text NOT NULL,
+      permission_ms int,
+      location_source text,
+      location_ms int,
+      api_ms int,
+      total_ms int,
+      success boolean,
+      created_at timestamptz NOT NULL DEFAULT now()
+    );
+  `);
+  await safe(`CREATE INDEX IF NOT EXISTS idx_load_diagnostics_platform ON load_diagnostics (platform, created_at DESC);`);
+  await safe(`CREATE INDEX IF NOT EXISTS idx_load_diagnostics_created ON load_diagnostics (created_at DESC);`);
+
+  // Crash reports: from AppErrorBoundary and unhandled errors
+  await safe(`
+    CREATE TABLE IF NOT EXISTS crash_reports (
+      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      device_id text NULL,
+      platform text NULL,
+      app_version text NULL,
+      error_message text,
+      error_stack text,
+      component_stack text,
+      created_at timestamptz NOT NULL DEFAULT now()
+    );
+  `);
+  await safe(`CREATE INDEX IF NOT EXISTS idx_crash_reports_created ON crash_reports (created_at DESC);`);
 }
 

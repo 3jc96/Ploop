@@ -33,7 +33,7 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CHART_HEIGHT = 160;
 const BAR_GAP = 4;
 
-type Tab = 'overview' | 'moderation';
+type Tab = 'overview' | 'moderation' | 'diagnostics';
 type GroupBy = 'day' | 'week' | 'month';
 type RangePreset = '7d' | '30d' | '90d';
 
@@ -136,6 +136,8 @@ export default function AdminScreen() {
   const navigation = useNavigation();
   const { user } = useAuth();
   const [tab, setTab] = useState<Tab>('overview');
+  const [diagnostics, setDiagnostics] = useState<{ summary: any[]; recent: any[] } | null>(null);
+  const [crashReports, setCrashReports] = useState<any[]>([]);
   const [rangePreset, setRangePreset] = useState<RangePreset>('30d');
   const [groupBy, setGroupBy] = useState<GroupBy>('day');
   const [dashboard, setDashboard] = useState<any>(null);
@@ -242,9 +244,13 @@ export default function AdminScreen() {
 
   const refresh = useCallback(async () => {
     setRefreshing(true);
-    await Promise.all([loadDashboard(), loadReviews()]);
+    const tasks = [loadDashboard(), loadReviews()];
+    if (tab === 'diagnostics') {
+      tasks.push(loadDiagnostics(), loadCrashReports());
+    }
+    await Promise.all(tasks);
     setRefreshing(false);
-  }, [loadDashboard, loadReviews]);
+  }, [loadDashboard, loadReviews, loadDiagnostics, loadCrashReports, tab]);
 
   useEffect(() => {
     if (!isAdmin) return;
@@ -257,6 +263,34 @@ export default function AdminScreen() {
     setReviewsOffset(0);
     loadReviews(false);
   }, [isAdmin, tab]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const loadDiagnostics = useCallback(async () => {
+    if (!isAdmin) return;
+    try {
+      const data = await api.admin.getDiagnostics({ limit: 100 });
+      setDiagnostics(data);
+    } catch (e) {
+      console.error(e);
+      setDiagnostics(null);
+    }
+  }, [isAdmin]);
+
+  const loadCrashReports = useCallback(async () => {
+    if (!isAdmin) return;
+    try {
+      const data = await api.admin.getCrashReports({ limit: 50 });
+      setCrashReports(data.crashReports || []);
+    } catch (e) {
+      console.error(e);
+      setCrashReports([]);
+    }
+  }, [isAdmin]);
+
+  useEffect(() => {
+    if (!isAdmin || tab !== 'diagnostics') return;
+    loadDiagnostics();
+    loadCrashReports();
+  }, [isAdmin, tab, loadDiagnostics, loadCrashReports]);
 
   // Register push token for suggestion notifications (native only)
   useEffect(() => {
@@ -499,6 +533,12 @@ export default function AdminScreen() {
           onPress={() => setTab('moderation')}
         >
           <Text style={[styles.tabText, tab === 'moderation' && styles.tabTextActive]}>Moderation</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tab, tab === 'diagnostics' && styles.tabActive]}
+          onPress={() => setTab('diagnostics')}
+        >
+          <Text style={[styles.tabText, tab === 'diagnostics' && styles.tabTextActive]}>Diagnostics</Text>
         </TouchableOpacity>
       </View>
 
@@ -778,6 +818,63 @@ export default function AdminScreen() {
             )}
           </>
         )}
+
+        {tab === 'diagnostics' && (
+          <>
+            <Text style={styles.sectionTitle}>Load diagnostics (last 7 days)</Text>
+            <Text style={styles.hintText}>Android vs iOS timing: perm=permission, loc=location, api=backend.</Text>
+            {diagnostics?.summary?.length > 0 ? (
+              <View style={styles.diagSummary}>
+                {diagnostics.summary.map((s: any, i: number) => (
+                  <View key={i} style={styles.diagCard}>
+                    <Text style={styles.diagPlatform}>{s.platform}</Text>
+                    <Text style={styles.diagStat}>{`n=${s.count ?? 0}`}</Text>
+                    <Text style={styles.diagStat}>perm avg: {s.avg_perm_ms ?? '–'}ms</Text>
+                    <Text style={styles.diagStat}>loc avg: {s.avg_loc_ms ?? '–'}ms</Text>
+                    <Text style={styles.diagStat}>api avg: {s.avg_api_ms ?? '–'}ms</Text>
+                    <Text style={[styles.diagStat, styles.diagTotal]}>total avg: {s.avg_total_ms ?? '–'}ms</Text>
+                  </View>
+                ))}
+              </View>
+            ) : (
+              <Text style={styles.empty}>No load diagnostics yet. Open the app on devices to collect data.</Text>
+            )}
+            <Text style={[styles.sectionTitle, { marginTop: 24 }]}>Recent load events</Text>
+            {diagnostics?.recent?.length > 0 ? (
+              <View style={styles.diagRecent}>
+                {diagnostics.recent.slice(0, 20).map((r: any) => (
+                  <View key={r.id} style={styles.diagRow}>
+                    <Text style={styles.diagRowPlatform}>{r.platform}</Text>
+                    <Text style={styles.diagRowValues}>
+                      {`total=${r.total_ms ?? '–'}ms · loc=${r.location_source ?? '–'} · api=${r.api_ms ?? '–'}ms`}
+                    </Text>
+                    <Text style={styles.diagRowDate}>{new Date(r.created_at).toLocaleString()}</Text>
+                  </View>
+                ))}
+              </View>
+            ) : (
+              <Text style={styles.empty}>No recent events</Text>
+            )}
+
+            <Text style={[styles.sectionTitle, { marginTop: 24 }]}>Crash reports</Text>
+            {crashReports.length > 0 ? (
+              <View style={styles.crashList}>
+                {crashReports.map((c: any) => (
+                  <View key={c.id} style={styles.crashCard}>
+                    <Text style={styles.crashMessage} numberOfLines={2}>{c.error_message}</Text>
+                    <Text style={styles.crashMeta}>{c.platform ?? '?'} · v{c.app_version ?? '?'}</Text>
+                    <Text style={styles.crashDate}>{new Date(c.created_at).toLocaleString()}</Text>
+                    {c.error_stack ? (
+                      <Text style={styles.crashStack} numberOfLines={4}>{c.error_stack}</Text>
+                    ) : null}
+                  </View>
+                ))}
+              </View>
+            ) : (
+              <Text style={styles.empty}>No crash reports</Text>
+            )}
+          </>
+        )}
       </ScrollView>
 
       <Modal visible={!!editingReview} transparent animationType="fade">
@@ -992,6 +1089,44 @@ const styles = StyleSheet.create({
   modalSaveBtnDisabled: { opacity: 0.7 },
   modalSaveText: { fontSize: 16, color: '#fff', fontWeight: '600' },
   empty: { fontSize: 14, color: '#94a3b8', textAlign: 'center', marginVertical: 24 },
+  hintText: { fontSize: 12, color: '#94a3b8', marginBottom: 12 },
+  diagSummary: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 20 },
+  diagCard: {
+    backgroundColor: '#fff',
+    padding: 14,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    minWidth: 140,
+  },
+  diagPlatform: { fontSize: 14, fontWeight: '700', color: '#6366f1', marginBottom: 6 },
+  diagStat: { fontSize: 12, color: '#64748b', marginBottom: 2 },
+  diagTotal: { fontWeight: '600', color: '#334155', marginTop: 4 },
+  diagRecent: { marginBottom: 20 },
+  diagRow: {
+    backgroundColor: '#fff',
+    padding: 10,
+    borderRadius: 8,
+    marginBottom: 6,
+    borderLeftWidth: 4,
+    borderLeftColor: '#e2e8f0',
+  },
+  diagRowPlatform: { fontSize: 12, fontWeight: '600', color: '#6366f1' },
+  diagRowValues: { fontSize: 11, color: '#64748b', marginTop: 2 },
+  diagRowDate: { fontSize: 10, color: '#94a3b8', marginTop: 4 },
+  crashList: { marginBottom: 24 },
+  crashCard: {
+    backgroundColor: '#fef2f2',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 10,
+    borderLeftWidth: 4,
+    borderLeftColor: '#dc2626',
+  },
+  crashMessage: { fontSize: 13, fontWeight: '600', color: '#991b1b' },
+  crashMeta: { fontSize: 11, color: '#b91c1c', marginTop: 4 },
+  crashDate: { fontSize: 10, color: '#94a3b8', marginTop: 2 },
+  crashStack: { fontSize: 10, fontFamily: 'monospace', color: '#64748b', marginTop: 8 },
   loadMoreBtn: {
     paddingVertical: 14,
     paddingHorizontal: 24,

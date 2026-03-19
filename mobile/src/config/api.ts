@@ -22,6 +22,10 @@ function isTunnelHost(host: string): boolean {
 }
 
 function getDevBackendBaseUrl(port: string): string {
+  // Android emulator: use 10.0.2.2 to reach host (LAN IP often unreachable from emulator NAT)
+  if (Platform.OS === 'android' && (process as any).env?.EXPO_PUBLIC_PLOOP_ANDROID_EMULATOR === 'true') {
+    return `http://10.0.2.2:${port}`;
+  }
   // Prefer Expo dev server host (e.g. "192.168.1.25:8081", "localhost:8081").
   // Do NOT use tunnel host (exp.direct, ngrok) for the API — backend runs on your Mac, not the tunnel.
   const rawHostUri =
@@ -102,9 +106,41 @@ if (__DEV__ && Platform.OS === 'ios' && explicitApiUrl && isSimulator) {
 
 const RENDER_API_URL = 'https://ploop-api.onrender.com';
 
-export const API_BASE_URL = __DEV__
+function isLocalOrDevUrl(url: string): boolean {
+  if (!url || typeof url !== 'string') return false;
+  try {
+    const u = new URL(url);
+    const host = u.hostname.toLowerCase();
+    return (
+      host === 'localhost' ||
+      host === '127.0.0.1' ||
+      host.startsWith('192.168.') ||
+      host.startsWith('10.0.2.') ||
+      host.startsWith('10.') // 10.x.x.x = private, often dev
+    );
+  } catch {
+    return false;
+  }
+}
+
+let apiBaseUrl = __DEV__
   ? (explicitApiUrl || getDevBackendBaseUrl(backendPort))
   : (explicitApiUrl || RENDER_API_URL);
+
+// PRODUCTION SAFEGUARD: Store builds must never use localhost/LAN. Force production API.
+if (!__DEV__ && isLocalOrDevUrl(apiBaseUrl)) {
+  apiBaseUrl = RENDER_API_URL;
+}
+
+// Android emulator (dev only): LAN IP often unreachable; use 10.0.2.2 when env set
+if (__DEV__ && Platform.OS === 'android' && (process as any).env?.EXPO_PUBLIC_PLOOP_ANDROID_EMULATOR === 'true') {
+  if (apiBaseUrl.includes('192.168.')) {
+    apiBaseUrl = `http://10.0.2.2:${backendPort}`;
+    console.log('[Ploop] Android emulator: using 10.0.2.2 for API');
+  }
+}
+
+export const API_BASE_URL = apiBaseUrl;
 
 if (__DEV__) {
   console.log('[Ploop] API base URL:', API_BASE_URL);
@@ -150,5 +186,9 @@ export const API_ENDPOINTS = {
   // Suggestions (40 chars, sent to admin)
   suggestions: `${API_BASE_URL}/api/suggestions`,
   adminRegisterPushToken: `${API_BASE_URL}/api/admin/register-push-token`,
+  adminDiagnostics: `${API_BASE_URL}/api/admin/diagnostics`,
+  adminCrashReports: `${API_BASE_URL}/api/admin/crash-reports`,
+  diagnostics: `${API_BASE_URL}/api/diagnostics`,
+  crashReports: `${API_BASE_URL}/api/crash-reports`,
 };
 

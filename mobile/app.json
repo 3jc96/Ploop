@@ -38,7 +38,7 @@
     },
     "android": {
       "package": "com.ploop.app",
-      "versionCode": 44,
+      "versionCode": 45,
       "adaptiveIcon": {
         "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#ffffff"

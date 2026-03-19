@@ -19,7 +19,8 @@ yarn-error.log
 *.orig.*
 web-build/
 
-# Misc
+# Misc - never upload local env (production uses eas.json env)
+.env
 .env.local
 .env.*.local
 

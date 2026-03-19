@@ -1,6 +1,9 @@
 import React, { Suspense, useEffect } from 'react';
 import { ActivityIndicator, View, AppState } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
+import * as SplashScreen from 'expo-splash-screen';
+
+SplashScreen.preventAutoHideAsync().catch(() => {});
 import { createStackNavigator } from '@react-navigation/stack';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -65,6 +68,12 @@ function withSuspense<P extends object>(LazyComponent: React.LazyExoticComponent
 }
 
 export default function App() {
+  useEffect(() => {
+    requestAnimationFrame(() => {
+      SplashScreen.hideAsync().catch(() => {});
+    });
+  }, []);
+
   // Complete the auth session when the app receives the redirect from Google (closes the browser and returns the result to promptAsync).
   useEffect(() => {
     const completeAuth = () => {
