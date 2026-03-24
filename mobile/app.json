@@ -20,7 +20,7 @@
     },
     "ios": {
       "supportsTablet": true,
-      "buildNumber": "46",
+      "buildNumber": "47",
       "bundleIdentifier": "com.ploop.app",
       "config": {
         "googleMapsApiKey": "AIzaSyCLKBC2IeU1rQVSdhSZBCfDu984LcwiSXg"
@@ -38,7 +38,7 @@
     },
     "android": {
       "package": "com.ploop.app",
-      "versionCode": 52,
+      "versionCode": 53,
       "adaptiveIcon": {
         "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#ffffff"
