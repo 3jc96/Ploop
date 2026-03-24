@@ -319,7 +319,7 @@ export const api = {
       await api.setAuthToken(token);
       return { token, user };
     },
-    register: async (email: string, password: string, displayName?: string): Promise<{ token: string; user: AuthUser }> => {
+    register: async (email: string, password: string, displayName: string): Promise<{ token: string; user: AuthUser }> => {
       const response = await httpClient.post(
         API_ENDPOINTS.authRegister,
         { email, password, display_name: displayName },

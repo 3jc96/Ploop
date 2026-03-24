@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
   TextInput,
   ScrollView,
   KeyboardAvoidingView,
+  Linking,
 } from 'react-native';
 import { useNavigation, useRoute, CommonActions } from '@react-navigation/native';
 import Constants from 'expo-constants';
@@ -18,10 +19,9 @@ import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { getErrorMessage } from '../utils/engagement';
 
-// Use a stable redirect URI so Google Console only needs 2 entries:
-// - Web: http://localhost:8081/redirect (explicit path avoids root path ambiguity)
-// - Native: Always use Expo auth proxy (https://auth.expo.io/@owner/slug) to avoid
-//   Android "dismiss" bug when redirecting to ploop:// (expo-auth-session issue #23781)
+// Redirect URI for Google OAuth. Google rejects custom schemes (ploop://) – must use auth.expo.io.
+// - Web: http://localhost:8081/redirect (or origin/redirect)
+// - Native: https://auth.expo.io/@owner/slug (Expo proxy – add to Google Console)
 function getGoogleRedirectUri(): string {
   if (Platform.OS === 'web' && typeof window !== 'undefined') {
     const origin = window.location.origin;
@@ -54,6 +54,7 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [appleAuth, setAppleAuth] = useState<typeof import('expo-apple-authentication') | null>(null);
+  const linkingFallbackRef = useRef<{ code: string } | null>(null);
 
   // Load Apple auth only after mount so a missing native module doesn't break the whole screen load
   useEffect(() => {
@@ -84,6 +85,7 @@ export default function LoginScreen() {
       scopes: ['openid', 'email', 'profile'],
       responseType: AuthSession.ResponseType.Code,
       usePKCE: true,
+      extraParams: { prompt: 'select_account' }, // Always show account picker
     },
     discovery
   );
@@ -101,17 +103,49 @@ export default function LoginScreen() {
       );
       return;
     }
-    if (!request || !discovery) {
-      Alert.alert(
-        'Not ready',
-        'Unable to start Google sign-in. Check your connection and try again.'
-      );
-      return;
-    }
     setGoogleLoading(true);
     try {
+      // Android: use native Google Sign-In when available (development/production build)
+      // Skip in Expo Go – native module not available, use expo-auth-session below
+      if (Platform.OS === 'android' && Constants.appOwnership !== 'expo') {
+        try {
+          const mod = require('@react-native-google-signin/google-signin');
+          const GoogleSignin = mod?.GoogleSignin ?? mod?.default?.GoogleSignin;
+          if (!GoogleSignin) throw new Error('GoogleSignin not available');
+          await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+          const result = await GoogleSignin.signIn();
+          if (result.type === 'success' && result.data?.idToken) {
+            const ok = await loginWithGoogle({ id_token: result.data.idToken });
+            if (ok) {
+              if (returnTo === 'PoopGame' && typeof pendingScore === 'number') {
+                (navigation as any).dispatch(CommonActions.reset({
+                  index: 0,
+                  routes: [{ name: 'PoopGame', params: { pendingScore } }],
+                }));
+              } else {
+                (navigation as any).dispatch(CommonActions.reset({ index: 0, routes: [{ name: 'Map' }] }));
+              }
+            }
+          }
+          return;
+        } catch (nativeErr: any) {
+          if (nativeErr?.code === 'SIGN_IN_CANCELLED') return;
+          // DEVELOPER_ERROR (code 10): SHA-1 fingerprint not in Google Console – fall through to expo-auth-session
+          const isDeveloperError = nativeErr?.code === 10 || nativeErr?.code === '10' || /DEVELOPER_ERROR/i.test(nativeErr?.message || '');
+          if (isDeveloperError || nativeErr?.code === 'PLAY_SERVICES_NOT_AVAILABLE' || /not available|Cannot find module/i.test(nativeErr?.message || '')) {
+            // Fall through to expo-auth-session (works with Web OAuth client + auth.expo.io)
+          } else {
+            throw nativeErr;
+          }
+        }
+      }
+
       // Web: use same-tab redirect to avoid popup blockers. Store code_verifier for when we return.
       if (Platform.OS === 'web' && typeof window !== 'undefined') {
+        if (!request || !discovery) {
+          Alert.alert('Not ready', 'Unable to start Google sign-in. Check your connection and try again.');
+          return;
+        }
         const authUrl = request.url ?? (await (request as any).makeAuthUrlAsync(discovery));
         const verifier = (request as any).codeVerifier;
         if (verifier) {
@@ -125,25 +159,56 @@ export default function LoginScreen() {
         return; // Page will redirect; no need to reset loading
       }
 
-      // Native: use promptAsync (popup or in-app browser)
-      let urlToOpen: string | undefined;
-      if (redirectUri.startsWith('https://auth.expo.io/') && discovery) {
-        const authUrl = request.url ?? (await (request as any).makeAuthUrlAsync(discovery));
-        let returnUrl = AuthSession.makeRedirectUri({ path: 'auth' });
-        // auth.expo.io rejects bare scheme (e.g. ploop://) – ensure path for standalone
-        if (returnUrl && /^[a-zA-Z][a-zA-Z0-9+.-]*:\/\/$/.test(returnUrl)) {
-          returnUrl = `${returnUrl}auth`;
-        }
-        urlToOpen = `${redirectUri}/start?${new URLSearchParams({ authUrl, returnUrl }).toString()}`;
+      // iOS / Android (expo-auth-session) – use auth.expo.io proxy (Google rejects custom schemes)
+      if (!request || !discovery) {
+        Alert.alert('Not ready', 'Unable to start Google sign-in. Check your connection and try again.');
+        return;
       }
-      const promptOptions = urlToOpen ? { url: urlToOpen } : undefined;
-      if (Platform.OS === 'android' && promptOptions) {
+      const authUrl = request.url ?? (await (request as any).makeAuthUrlAsync(discovery));
+      let returnUrl = AuthSession.makeRedirectUri({ path: 'auth' });
+      if (returnUrl && /^[a-zA-Z][a-zA-Z0-9+.-]*:\/\/$/.test(returnUrl)) {
+        returnUrl = `${returnUrl}auth`;
+      }
+      const urlToOpen = `${redirectUri}/start?${new URLSearchParams({ authUrl, returnUrl }).toString()}`;
+      const promptOptions: Record<string, unknown> = { url: urlToOpen };
+      if (Platform.OS === 'android') {
         (promptOptions as any).showInRecents = true;
+        (promptOptions as any).createTask = true; // Keep app alive when switching to browser
       }
+
+      // Android: expo-auth-session often returns "dismiss" even when redirect succeeds (expo#23781).
+      // The redirect URL with code still reaches the app via Linking – capture it as fallback.
+      linkingFallbackRef.current = null;
+      const captureCodeFromUrl = (url: string) => {
+        if (__DEV__) console.log('[Ploop] Linking url received:', url?.slice(0, 80) + (url?.length > 80 ? '...' : ''));
+        try {
+          const idx = url.indexOf('?');
+          if (idx >= 0) {
+            const params = Object.fromEntries(new URLSearchParams(url.slice(idx)));
+            if (params.code && params.state === request.state) {
+              linkingFallbackRef.current = { code: params.code };
+              if (__DEV__) console.log('[Ploop] Captured code from Linking');
+            }
+          }
+        } catch (e) {
+          if (__DEV__) console.warn('[Ploop] Linking parse error:', e);
+        }
+      };
+      const subscription = Linking.addEventListener('url', (event) => captureCodeFromUrl(event.url));
+
       const result = await promptAsync(promptOptions);
-      if (result.type === 'success' && result.params?.code) {
+      subscription.remove();
+      if (__DEV__) console.log('[Ploop] promptAsync result:', result.type, 'fallbackCode:', !!linkingFallbackRef.current?.code);
+
+      // Also check getInitialURL (sometimes URL arrives there when app resumes)
+      if (!linkingFallbackRef.current?.code) {
+        const initial = await Linking.getInitialURL();
+        if (initial) captureCodeFromUrl(initial);
+      }
+      const code = result.type === 'success' ? result.params?.code : linkingFallbackRef.current?.code;
+      if (code) {
         const ok = await loginWithGoogle({
-          code: result.params.code,
+          code,
           redirect_uri: redirectUri,
           code_verifier: request.codeVerifier,
         });
@@ -155,6 +220,27 @@ export default function LoginScreen() {
             }));
           } else {
             (navigation as any).dispatch(CommonActions.reset({ index: 0, routes: [{ name: 'Map' }] }));
+          }
+        }
+      } else if (result.type === 'dismiss' && Platform.OS === 'android') {
+        // Give Linking event time to fire (it can be delayed)
+        await new Promise((r) => setTimeout(r, 300));
+        const lateCode = linkingFallbackRef.current?.code;
+        if (lateCode) {
+          const ok = await loginWithGoogle({
+            code: lateCode,
+            redirect_uri: redirectUri,
+            code_verifier: request.codeVerifier,
+          });
+          if (ok) {
+            if (returnTo === 'PoopGame' && typeof pendingScore === 'number') {
+              (navigation as any).dispatch(CommonActions.reset({
+                index: 0,
+                routes: [{ name: 'PoopGame', params: { pendingScore } }],
+              }));
+            } else {
+              (navigation as any).dispatch(CommonActions.reset({ index: 0, routes: [{ name: 'Map' }] }));
+            }
           }
         }
       }
@@ -212,8 +298,13 @@ export default function LoginScreen() {
   const handleEmailSubmit = async () => {
     const e = email.trim().toLowerCase();
     const p = password.trim();
+    const n = displayName.trim();
     if (!e || !p) {
       Alert.alert('Missing fields', 'Enter email and password.');
+      return;
+    }
+    if (emailMode === 'register' && !n) {
+      Alert.alert('Name required', 'Enter your name to create an account.');
       return;
     }
     if (emailMode === 'register' && p.length < 8) {
@@ -223,7 +314,7 @@ export default function LoginScreen() {
     setEmailLoading(true);
     try {
       const ok = emailMode === 'register'
-        ? await registerWithEmail(e, p, displayName.trim() || undefined)
+        ? await registerWithEmail(e, p, n)
         : await loginWithEmail(e, p);
       if (ok) {
         if (returnTo === 'PoopGame' && typeof pendingScore === 'number') {
@@ -311,7 +402,7 @@ export default function LoginScreen() {
           {emailMode === 'register' && (
             <TextInput
               style={styles.emailInput}
-              placeholder={t('nameOptional')}
+              placeholder={t('name')}
               value={displayName}
               onChangeText={setDisplayName}
               autoCapitalize="words"

@@ -13,7 +13,7 @@ type AuthContextValue = AuthState & {
   loginWithGoogle: (payload: { id_token?: string; code?: string; redirect_uri?: string; code_verifier?: string }) => Promise<boolean>;
   loginWithApple: (id_token: string, name?: string) => Promise<boolean>;
   loginWithEmail: (email: string, password: string) => Promise<boolean>;
-  registerWithEmail: (email: string, password: string, displayName?: string) => Promise<boolean>;
+  registerWithEmail: (email: string, password: string, displayName: string) => Promise<boolean>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
   clearError: () => void;
@@ -107,7 +107,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   );
 
   const registerWithEmail = useCallback(
-    async (email: string, password: string, displayName?: string): Promise<boolean> => {
+    async (email: string, password: string, displayName: string): Promise<boolean> => {
       setState((s) => ({ ...s, error: null }));
       try {
         await api.auth.register(email, password, displayName);

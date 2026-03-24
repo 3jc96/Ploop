@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Ploop — Toilet navigation</title>
+    <meta
+      name="description"
+      content="Find toilets near you. Never get caught short. Download Ploop on the App Store."
+    />
+    <meta property="og:title" content="Ploop — Toilet navigation" />
+    <meta
+      property="og:description"
+      content="Find toilets near you. Never get caught short."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://ploop-app.com/" />
+    <meta property="og:image" content="https://ploop-app.com/assets/logo.png" />
+    <link rel="icon" href="assets/logo.png" type="image/png" />
+    <style>
+      :root {
+        --bg: #f5f5f5;
+        --card: #ffffff;
+        --text: #333333;
+        --text-muted: #666666;
+        --text-soft: #999999;
+        --primary: #2196f3;
+        --primary-hover: #1976d2;
+        --accent: #6366f1;
+        --shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        --radius: 16px;
+        --radius-sm: 12px;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        min-height: 100%;
+      }
+
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial,
+          sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        line-height: 1.5;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      .wrap {
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+        background: radial-gradient(ellipse 120% 80% at 50% -20%, rgba(33, 150, 243, 0.12), transparent),
+          var(--bg);
+      }
+
+      .card {
+        width: 100%;
+        max-width: 420px;
+        background: var(--card);
+        border-radius: var(--radius);
+        padding: 32px 28px 28px;
+        box-shadow: var(--shadow);
+        text-align: center;
+      }
+
+      .logo {
+        width: 88px;
+        height: 88px;
+        border-radius: 20px;
+        margin: 0 auto 12px;
+        object-fit: cover;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+      }
+
+      .emoji {
+        font-size: 2.5rem;
+        line-height: 1;
+        margin-bottom: 4px;
+      }
+
+      h1 {
+        margin: 0 0 4px;
+        font-size: 1.75rem;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+      }
+
+      .subtitle {
+        margin: 0 0 4px;
+        font-size: 1rem;
+        color: var(--text-muted);
+      }
+
+      .tagline {
+        margin: 0 0 28px;
+        font-size: 0.875rem;
+        color: var(--text-soft);
+        font-style: italic;
+      }
+
+      .btn-appstore {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        min-height: 50px;
+        padding: 12px 20px;
+        margin-bottom: 12px;
+        background: var(--primary);
+        color: #fff;
+        font-size: 1rem;
+        font-weight: 600;
+        text-decoration: none;
+        border-radius: var(--radius-sm);
+        border: none;
+        cursor: pointer;
+        transition: background 0.15s ease, transform 0.1s ease;
+      }
+
+      .btn-appstore:hover {
+        background: var(--primary-hover);
+      }
+
+      .btn-appstore:active {
+        transform: scale(0.99);
+      }
+
+      .btn-play-soon {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        min-height: 50px;
+        padding: 12px 20px;
+        margin-bottom: 12px;
+        border-radius: var(--radius-sm);
+        border: 2px dashed #cbd5e1;
+        background: #f8fafc;
+        color: var(--text-muted);
+      }
+
+      .btn-play-soon-title {
+        font-size: 0.95rem;
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .btn-play-soon-title svg {
+        flex-shrink: 0;
+        color: #64748b;
+      }
+
+      .btn-play-soon-sub {
+        margin: 4px 0 0;
+        font-size: 0.72rem;
+        font-weight: 500;
+        color: var(--text-soft);
+      }
+
+      .hint {
+        margin: 0 0 28px;
+        font-size: 0.75rem;
+        color: var(--text-soft);
+      }
+
+      .section-label {
+        font-size: 0.7rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--text-soft);
+        margin-bottom: 10px;
+      }
+
+      .social-row {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        margin-bottom: 24px;
+      }
+
+      .social {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        min-height: 44px;
+        padding: 10px 16px;
+        border-radius: var(--radius-sm);
+        border: 1px dashed #c7d2fe;
+        background: #eef2ff;
+        color: #3730a3;
+        font-size: 0.9rem;
+        font-weight: 600;
+      }
+
+      .social svg {
+        flex-shrink: 0;
+        opacity: 0.85;
+      }
+
+      .social-note {
+        font-size: 0.75rem;
+        font-weight: 500;
+        color: var(--text-soft);
+        font-style: italic;
+      }
+
+      a.social.social-link {
+        text-decoration: none;
+        border-style: solid;
+        border-color: #e0e7ff;
+        cursor: pointer;
+        transition: border-color 0.15s ease, background 0.15s ease;
+      }
+
+      a.social.social-link:hover {
+        border-color: #c7d2fe;
+        background: #e0e7ff;
+      }
+
+      .contact {
+        padding-top: 20px;
+        border-top: 1px solid #f0f0f0;
+        font-size: 0.875rem;
+        color: var(--text-muted);
+      }
+
+      .contact a {
+        color: var(--accent);
+        font-weight: 600;
+        text-decoration: none;
+      }
+
+      .contact a:hover {
+        text-decoration: underline;
+      }
+
+      footer {
+        margin-top: 8px;
+        font-size: 0.75rem;
+        color: var(--text-soft);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <main class="card">
+        <img class="logo" src="assets/logo.png" width="88" height="88" alt="Ploop app icon" />
+        <div class="emoji" aria-hidden="true">🚽</div>
+        <h1>Ploop</h1>
+        <p class="subtitle">Find toilets near you</p>
+        <p class="tagline">Never get caught short.</p>
+
+        <a
+          class="btn-appstore"
+          href="https://apps.apple.com/us/app/ploop/id6759898612"
+          rel="noopener noreferrer"
+          target="_blank"
+        >
+          Download on the App Store
+        </a>
+        <div class="btn-play-soon" role="status" aria-live="polite">
+          <span class="btn-play-soon-title">
+            <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                fill="currentColor"
+                d="M9 6.5v11l9-5.5L9 6.5z"
+              />
+            </svg>
+            Google Play
+          </span>
+          <p class="btn-play-soon-sub">Coming soon · Android</p>
+        </div>
+        <p class="hint">Free · iPhone &amp; iPad · Navigation</p>
+
+        <div class="section-label">Social</div>
+        <div class="social-row">
+          <a
+            class="social social-link"
+            href="https://www.instagram.com/ploop.app/"
+            rel="noopener noreferrer"
+            target="_blank"
+            aria-label="Ploop on Instagram (@ploop.app)"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path
+                d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"
+              />
+            </svg>
+            Instagram
+            <span class="social-note">@ploop.app</span>
+          </a>
+          <a
+            class="social social-link"
+            href="https://www.tiktok.com/@ploopapp"
+            rel="noopener noreferrer"
+            target="_blank"
+            aria-label="Ploop on TikTok (@ploopapp)"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path
+                d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-5.2 1.74 2.89 2.89 0 012.31-4.64v-3.5a6.34 6.34 0 00-1-.1A6.33 6.33 0 005 20.1a6.34 6.34 0 0010.14-5.1v-7a8.16 8.16 0 004.77 1.52v-3.4a4.85 4.85 0 01-1-.1z"
+              />
+            </svg>
+            TikTok
+            <span class="social-note">@ploopapp</span>
+          </a>
+        </div>
+
+        <div class="contact">
+          <strong>Contact</strong><br />
+          <a href="mailto:admin@ploop-app.com">admin@ploop-app.com</a>
+        </div>
+        <footer>© Ploop</footer>
+      </main>
+    </div>
+  </body>
+</html>

@@ -40,6 +40,11 @@
         "ascAppId": "6759898612"
       },
       "android": {
+        "track": "production"
+      }
+    },
+    "play-internal": {
+      "android": {
         "track": "internal"
       }
     }

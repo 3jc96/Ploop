@@ -17,11 +17,13 @@ import adminRouter from './routes/admin';
 import poopGameRouter from './routes/poopGame';
 import suggestionsRouter from './routes/suggestions';
 import diagnosticsRouter from './routes/diagnostics';
+import internalJobsRouter from './routes/internalJobs';
 import { optionalAuth } from './middleware/auth';
 import { ensureFeatureTables } from './utils/ensureTables';
 import { checkDatabase } from './utils/checkDatabase';
 import { validateEnv } from './config/validateEnv';
 import pool from './config/database';
+import { scheduleMonthlyPoopGameTop3Report } from './jobs/monthlyPoopGameTop3';
 
 dotenv.config();
 validateEnv();
@@ -109,6 +111,8 @@ app.get('/', (req, res) => {
       auth: '/api/auth',
       authGoogle: 'POST /api/auth/google',
       authApple: 'POST /api/auth/apple',
+      authRegister: 'POST /api/auth/register',
+      authLogin: 'POST /api/auth/login',
       authMe: 'GET /api/auth/me',
       toilets: '/api/toilets',
       toiletByPlace: '/api/toilets/by-place/:placeId',
@@ -203,6 +207,7 @@ async function start(): Promise<void> {
     console.log(`🚽 Ploop API server running on port ${PORT}`);
     console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
     console.log(`(Listening on all interfaces so your phone can connect when on the same Wi‑Fi)`);
+    scheduleMonthlyPoopGameTop3Report();
   });
 
   function shutdown(signal: string) {

@@ -8,7 +8,10 @@ import { createStackNavigator } from '@react-navigation/stack';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import * as WebBrowser from 'expo-web-browser';
+import { initGoogleSignIn } from './src/utils/initGoogleSignIn';
 import { AppErrorBoundary } from './src/AppErrorBoundary';
+
+initGoogleSignIn();
 import { AppLoadingGate } from './src/components/AppLoadingGate';
 import { SplashSoundGate } from './src/components/SplashSoundGate';
 import { AuthProvider } from './src/context/AuthContext';
@@ -18,13 +21,13 @@ import { WebAuthRedirectHandler } from './src/WebAuthRedirectHandler';
 
 import LoginScreenWrapper from './src/screens/LoginScreenWrapper';
 import RedirectScreen from './src/screens/RedirectScreen';
+import PoopGameEntry from './src/screens/PoopGameEntry';
 // Lazy-load other screens so the app entry registers before loading heavy deps.
 const MapScreen = React.lazy(() => import('./src/screens/MapScreenWrapper'));
 const ToiletDetailsScreen = React.lazy(() => import('./src/screens/ToiletDetailsScreen'));
 const AddToiletScreen = React.lazy(() => import('./src/screens/AddToiletScreen'));
 const LocationReviewScreen = React.lazy(() => import('./src/screens/LocationReviewScreen'));
 const AdminScreen = React.lazy(() => import('./src/screens/AdminScreen'));
-const PoopGameScreen = React.lazy(() => import('./src/screens/PoopGameScreen'));
 
 const Stack = createStackNavigator();
 
@@ -149,7 +152,7 @@ export default function App() {
               />
               <Stack.Screen
                 name="PoopGame"
-                component={withSuspense(PoopGameScreen)}
+                component={PoopGameEntry}
                 options={{ title: 'Catch the Poop' }}
               />
             </Stack.Navigator>

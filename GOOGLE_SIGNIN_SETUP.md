@@ -9,10 +9,10 @@
 5. Application type: **Web application**.
 6. Name: e.g. `Ploop`.
 7. **Authorized redirect URIs** – add **all** of these (must match exactly):
-   - **Native (Expo Go / device):** `https://auth.expo.io/@jcrs96/ploop`  
-     (Replace `jcrs96` with your Expo username and `ploop` with your app slug from `app.json` → `expo.slug`.)
+   - **Native:** `https://auth.expo.io/@jcrs96/ploop`  
+     (Replace `jcrs96`/`ploop` with your Expo owner/slug from `app.json`.)
    - **Web:** `http://localhost:8081/redirect`  
-     (Copy this exactly – no trailing slash after "redirect". When you deploy, add your production origin + `/redirect`, e.g. `https://yourapp.com/redirect`.)
+     (Copy this exactly – no trailing slash. When you deploy, add your production origin + `/redirect`.)
 8. Click **Create**. Copy the **Client ID** and **Client secret**.
 
 ## 2. Backend
@@ -59,9 +59,8 @@ Google rejects the request because the redirect URI sent by the app is not in yo
 - **Web:** Add exactly: `http://localhost:8081/redirect`  
   (No trailing slash. The app normalizes 127.0.0.1 to localhost, so this one URI covers both.)
 
-- **Mobile (Expo Go):** Add exactly:  
-  `https://auth.expo.io/@YOUR_EXPO_USERNAME/ploop`  
-  (Check Metro logs when you tap “Sign in with Google” – it prints the redirect URI, or see `app.json` → `expo.owner` and `expo.slug`.)
+- **Mobile:** Add: `https://auth.expo.io/@YOUR_EXPO_USERNAME/ploop`  
+  (Check Metro logs or `app.json` → `expo.owner` and `expo.slug`.)
 - Use a **Web application** OAuth client in Google Cloud (not Android/iOS) so the same client works for web and for the code exchange used by Expo.
 
 After changing redirect URIs in Google Cloud Console, wait a minute and try again.

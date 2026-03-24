@@ -156,25 +156,15 @@ router.get(
 
       const result = await pool.query(
         `
-        SELECT 
+        SELECT
           t.*,
           ST_Distance(t.location, ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography) as distance,
           COALESCE(rp.active_reports, 0) as active_reports,
           COALESCE(rp.report_summary, '[]'::jsonb) as report_summary,
-          COALESCE(
-            json_agg(
-              json_build_object(
-                'id', tp.id,
-                'photo_url', tp.photo_url,
-                'uploaded_at', tp.uploaded_at
-              )
-            ) FILTER (WHERE tp.id IS NOT NULL),
-            '[]'
-          ) as photos
+          COALESCE(ph.photos, '[]'::json) as photos
         FROM toilets t
-        LEFT JOIN (
+        LEFT JOIN LATERAL (
           SELECT
-            toilet_id,
             COUNT(*) FILTER (WHERE expires_at > now())::int as active_reports,
             COALESCE(
               jsonb_agg(
@@ -188,9 +178,19 @@ router.get(
               '[]'::jsonb
             ) as report_summary
           FROM toilet_reports
-          GROUP BY toilet_id
-        ) rp ON rp.toilet_id = t.id
-        LEFT JOIN toilet_photos tp ON t.id = tp.toilet_id
+          WHERE toilet_id = t.id
+        ) rp ON true
+        LEFT JOIN LATERAL (
+          SELECT COALESCE(
+            json_agg(json_build_object('id', sub.id, 'photo_url', sub.photo_url, 'uploaded_at', sub.uploaded_at)),
+            '[]'::json
+          ) as photos
+          FROM (
+            SELECT id, photo_url, uploaded_at FROM toilet_photos
+            WHERE toilet_id = t.id
+            ORDER BY uploaded_at DESC LIMIT 3
+          ) sub
+        ) ph ON true
         WHERE t.is_active = true
           ${whereExtra}
           AND ST_DWithin(
@@ -198,7 +198,6 @@ router.get(
             ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography,
             $3
           )
-        GROUP BY t.id, rp.active_reports, rp.report_summary
         ORDER BY distance
         LIMIT $4
         `,
@@ -230,6 +229,7 @@ router.get(
       if (elapsed > 2000) {
         console.warn(`[Toilets] Slow nearby request: ${elapsed}ms (lat=${latitude}, lng=${longitude}, radius=${radius})`);
       }
+      res.set('Cache-Control', 'private, max-age=60');
       res.json({ toilets, count: toilets.length });
     } catch (error) {
       const elapsed = Date.now() - startMs;
@@ -279,45 +279,30 @@ router.get(
       try {
         result = await pool.query(
         `
-        SELECT 
+        SELECT
           t.*,
           COALESCE(rp.active_reports, 0) as active_reports,
           COALESCE(rp.report_summary, '[]'::jsonb) as report_summary,
-          COALESCE(
-            json_agg(
-              json_build_object(
-                'id', tp.id,
-                'photo_url', tp.photo_url,
-                'uploaded_at', tp.uploaded_at
-              )
-            ) FILTER (WHERE tp.id IS NOT NULL),
-            '[]'
-          ) as photos
+          COALESCE(ph.photos, '[]'::json) as photos
         FROM toilets t
-        LEFT JOIN (
+        LEFT JOIN LATERAL (
           SELECT
-            toilet_id,
             COUNT(*) FILTER (WHERE expires_at > now())::int as active_reports,
             COALESCE(
-              jsonb_agg(
-                jsonb_build_object(
-                  'type', report_type,
-                  'note', note,
-                  'created_at', created_at,
-                  'expires_at', expires_at
-                )
-              ) FILTER (WHERE expires_at > now()),
+              jsonb_agg(jsonb_build_object('type', report_type, 'note', note, 'created_at', created_at, 'expires_at', expires_at))
+              FILTER (WHERE expires_at > now()),
               '[]'::jsonb
             ) as report_summary
-          FROM toilet_reports
-          GROUP BY toilet_id
-        ) rp ON rp.toilet_id = t.id
-        LEFT JOIN toilet_photos tp ON t.id = tp.toilet_id
+          FROM toilet_reports WHERE toilet_id = t.id
+        ) rp ON true
+        LEFT JOIN LATERAL (
+          SELECT COALESCE(json_agg(json_build_object('id', sub.id, 'photo_url', sub.photo_url, 'uploaded_at', sub.uploaded_at)), '[]'::json) as photos
+          FROM (SELECT id, photo_url, uploaded_at FROM toilet_photos WHERE toilet_id = t.id ORDER BY uploaded_at DESC LIMIT 3) sub
+        ) ph ON true
         WHERE t.is_active = true
           AND (t.city ILIKE $1 OR t.city ILIKE $2)
           AND COALESCE(t.total_reviews, 0) >= $3
           AND COALESCE(rp.active_reports, 0) = 0
-        GROUP BY t.id, rp.active_reports, rp.report_summary
         `,
         [city, `%${city}%`, SUPER_TOILET_MIN_REVIEWS]
       );
@@ -328,7 +313,7 @@ router.get(
         throw e;
       }
 
-      let toilets = result.rows.map((row) => {
+      const mapRow = (row: any) => {
         const { photos, active_reports, report_summary, ...toilet } = row;
         const confidenceBase = computeConfidenceScore(toilet);
         const reportPenalty = Math.min(35, (parseInt(active_reports || '0', 10) || 0) * 8);
@@ -341,10 +326,49 @@ router.get(
           active_reports: parseInt(active_reports || '0', 10) || 0,
           report_summary: report_summary || [],
         };
-      });
+      };
 
-      toilets = toilets.filter((t: any) => (t.confidence_score || 0) >= SUPER_TOILET_MIN_CONFIDENCE);
-      toilets.sort((a: any, b: any) => (b.confidence_score || 0) - (a.confidence_score || 0));
+      let toilets = result.rows.map(mapRow)
+        .filter((t: any) => (t.confidence_score || 0) >= SUPER_TOILET_MIN_CONFIDENCE)
+        .sort((a: any, b: any) => (b.confidence_score || 0) - (a.confidence_score || 0));
+
+      // Fallback: relax to any reviewed, no-active-reports toilet near the coordinates
+      if (toilets.length === 0 && latitude != null && longitude != null) {
+        const fallbackResult = await pool.query(
+          `
+          SELECT
+            t.*,
+            COALESCE(rp.active_reports, 0) as active_reports,
+            COALESCE(rp.report_summary, '[]'::jsonb) as report_summary,
+            COALESCE(ph.photos, '[]'::json) as photos
+          FROM toilets t
+          LEFT JOIN LATERAL (
+            SELECT
+              COUNT(*) FILTER (WHERE expires_at > now())::int as active_reports,
+              COALESCE(
+                jsonb_agg(jsonb_build_object('type', report_type, 'note', note, 'created_at', created_at, 'expires_at', expires_at))
+                FILTER (WHERE expires_at > now()),
+                '[]'::jsonb
+              ) as report_summary
+            FROM toilet_reports WHERE toilet_id = t.id
+          ) rp ON true
+          LEFT JOIN LATERAL (
+            SELECT COALESCE(json_agg(json_build_object('id', sub.id, 'photo_url', sub.photo_url, 'uploaded_at', sub.uploaded_at)), '[]'::json) as photos
+            FROM (SELECT id, photo_url, uploaded_at FROM toilet_photos WHERE toilet_id = t.id ORDER BY uploaded_at DESC LIMIT 3) sub
+          ) ph ON true
+          WHERE t.is_active = true
+            AND COALESCE(t.total_reviews, 0) >= 1
+            AND COALESCE(rp.active_reports, 0) = 0
+            AND ST_DWithin(t.location, ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography, 20000)
+          ORDER BY (COALESCE(t.cleanliness_score, 0) + COALESCE(t.smell_score, 0)) DESC
+          LIMIT 20
+          `,
+          [parseFloat(longitude), parseFloat(latitude)]
+        );
+        toilets = fallbackResult.rows.map(mapRow)
+          .filter((t: any) => (t.confidence_score || 0) >= 40)
+          .sort((a: any, b: any) => (b.confidence_score || 0) - (a.confidence_score || 0));
+      }
 
       if (toilets.length === 0) {
         return res.status(404).json({ error: 'No super toilet found for this region today' });

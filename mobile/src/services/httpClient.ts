@@ -94,7 +94,7 @@ function createClient(): AxiosInstance {
         const reqId = (error.config as any)?._reqId;
         const status = error.response?.status;
         const url = String(error.config?.url ?? '');
-        const fullUrl = error.config?.baseURL ? `${error.config.baseURL}${url}` : url;
+        const fullUrl = url.startsWith('http') ? url : (error.config?.baseURL ? `${error.config.baseURL}${url}` : url);
         // 404 on by-place is expected (place not in DB yet) – don't log as error
         if (status === 404 && url.includes('/by-place/')) {
           console.log(`[Ploop HTTP] 404 (not in DB) ${url} [${reqId}]`);

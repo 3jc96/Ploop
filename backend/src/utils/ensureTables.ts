@@ -118,6 +118,11 @@ export async function ensureFeatureTables(): Promise<void> {
     END $$;
   `);
 
+  // Index on toilet_photos.toilet_id for LATERAL join in nearby query
+  await safe(`
+    CREATE INDEX IF NOT EXISTS idx_toilet_photos_toilet_id ON toilet_photos (toilet_id, uploaded_at DESC);
+  `);
+
   // Spatial index for PostGIS ST_DWithin nearby queries (no-op if missing or not geography)
   try {
     await pool.query(`
@@ -181,6 +186,14 @@ export async function ensureFeatureTables(): Promise<void> {
   await safe(`
     CREATE INDEX IF NOT EXISTS idx_poop_game_scores_score ON poop_game_scores (score DESC);
     CREATE INDEX IF NOT EXISTS idx_poop_game_scores_created ON poop_game_scores (created_at DESC);
+  `);
+
+  // Idempotent scheduled jobs (e.g. monthly poop-game winner email)
+  await safe(`
+    CREATE TABLE IF NOT EXISTS scheduled_job_runs (
+      job_id text PRIMARY KEY,
+      created_at timestamptz NOT NULL DEFAULT now()
+    );
   `);
 
   // User suggestions (40 chars) – sent to admin via email + push

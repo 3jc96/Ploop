@@ -1,11 +1,13 @@
 # Render Blueprint - Ploop backend + PostgreSQL
 # Connect this repo to Render; it will create the DB and web service.
+# Plans below are paid defaults (Pro web + Basic Postgres). If you already deployed
+# with different instance types, match those in the Render Dashboard or edit here.
 
 databases:
   - name: ploop-db
     databaseName: ploop
     user: ploop
-    plan: free
+    plan: basic-4gb
     region: oregon
 
 services:
@@ -13,7 +15,7 @@ services:
     name: ploop-api
     runtime: node
     region: oregon
-    plan: free
+    plan: pro
     rootDir: backend
     buildCommand: npm install --include=dev && npm run build
     startCommand: npm start

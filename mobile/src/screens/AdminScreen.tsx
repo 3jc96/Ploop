@@ -242,28 +242,6 @@ export default function AdminScreen() {
     }
   }, [isAdmin, reviewsOffset]);
 
-  const refresh = useCallback(async () => {
-    setRefreshing(true);
-    const tasks = [loadDashboard(), loadReviews()];
-    if (tab === 'diagnostics') {
-      tasks.push(loadDiagnostics(), loadCrashReports());
-    }
-    await Promise.all(tasks);
-    setRefreshing(false);
-  }, [loadDashboard, loadReviews, loadDiagnostics, loadCrashReports, tab]);
-
-  useEffect(() => {
-    if (!isAdmin) return;
-    setLoading(true);
-    loadDashboard().then(() => setLoading(false));
-  }, [isAdmin, loadDashboard, rangePreset, groupBy]);
-
-  useEffect(() => {
-    if (!isAdmin || tab !== 'moderation') return;
-    setReviewsOffset(0);
-    loadReviews(false);
-  }, [isAdmin, tab]); // eslint-disable-line react-hooks/exhaustive-deps
-
   const loadDiagnostics = useCallback(async () => {
     if (!isAdmin) return;
     try {
@@ -285,6 +263,28 @@ export default function AdminScreen() {
       setCrashReports([]);
     }
   }, [isAdmin]);
+
+  const refresh = useCallback(async () => {
+    setRefreshing(true);
+    const tasks = [loadDashboard(), loadReviews()];
+    if (tab === 'diagnostics') {
+      tasks.push(loadDiagnostics(), loadCrashReports());
+    }
+    await Promise.all(tasks);
+    setRefreshing(false);
+  }, [loadDashboard, loadReviews, loadDiagnostics, loadCrashReports, tab]);
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    setLoading(true);
+    loadDashboard().then(() => setLoading(false));
+  }, [isAdmin, loadDashboard, rangePreset, groupBy]);
+
+  useEffect(() => {
+    if (!isAdmin || tab !== 'moderation') return;
+    setReviewsOffset(0);
+    loadReviews(false);
+  }, [isAdmin, tab]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!isAdmin || tab !== 'diagnostics') return;

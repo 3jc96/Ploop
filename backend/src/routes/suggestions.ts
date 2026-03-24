@@ -6,34 +6,9 @@ import { body, validationResult } from 'express-validator';
 import { v4 as uuidv4 } from 'uuid';
 import pool from '../config/database';
 import { optionalAuth } from '../middleware/auth';
+import { sendEmailToAdmins } from '../utils/adminEmail';
 
 const router = express.Router();
-const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || '').split(',').map((e) => e.trim().toLowerCase()).filter(Boolean);
-
-async function sendEmailToAdmin(subject: string, text: string): Promise<void> {
-  const host = process.env.SMTP_HOST;
-  const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASS;
-  if (!host || !user || !pass) {
-    console.log('[Suggestions] SMTP not configured. Skipping email. Set SMTP_HOST, SMTP_USER, SMTP_PASS in .env');
-    return;
-  }
-  try {
-    const nodemailer = await import('nodemailer');
-    const transporter = nodemailer.default.createTransport({
-      host: process.env.SMTP_HOST,
-      port: parseInt(process.env.SMTP_PORT || '587', 10),
-      secure: process.env.SMTP_SECURE === 'true',
-      auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
-    });
-    const from = process.env.SMTP_FROM || process.env.SMTP_USER || 'noreply@ploop.app';
-    for (const to of ADMIN_EMAILS) {
-      if (to) await transporter.sendMail({ from, to, subject, text });
-    }
-  } catch (e) {
-    console.error('[Suggestions] Email failed:', e);
-  }
-}
 
 async function sendPushToAdmins(title: string, body: string): Promise<void> {
   try {
@@ -81,7 +56,7 @@ router.post(
 
       const subject = `Ploop suggestion: ${text}`;
       const emailBody = `New suggestion from Ploop app:\n\n"${text}"\n\nSubmitted at ${new Date().toISOString()}`;
-      sendEmailToAdmin(subject, emailBody).catch(() => {});
+      sendEmailToAdmins(subject, emailBody).catch(() => {});
       sendPushToAdmins('Ploop suggestion', text).catch(() => {});
 
       res.status(201).json({ id, ok: true });

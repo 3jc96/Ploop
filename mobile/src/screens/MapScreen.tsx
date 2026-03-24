@@ -1047,12 +1047,34 @@ const MapScreen: React.FC = () => {
     }
   };
 
+  /** Strip duplicate venues: same Google place, or multiple DB rows within ~50m (sorted by distance = keep closest-first as canonical). */
   const toiletsWithReviews = useMemo(() => {
     const list = Array.isArray(toilets) ? toilets : [];
-    return list
+    const withReviews = list
       .filter((t) => (t.total_reviews || 0) > 0)
       .sort((a, b) => (a.distance ?? 999999) - (b.distance ?? 999999));
-  }, [toilets]);
+
+    const DEDUPE_M = 50;
+    const out: Toilet[] = [];
+    const seenPlaceIds = new Set<string>();
+
+    for (const t of withReviews) {
+      const pid = t.google_place_id?.trim();
+      if (pid) {
+        if (seenPlaceIds.has(pid)) continue;
+        seenPlaceIds.add(pid);
+      }
+      const dupNearby = out.some((u) =>
+        metersBetween(
+          { latitude: t.latitude, longitude: t.longitude },
+          { latitude: u.latitude, longitude: u.longitude }
+        ) < DEDUPE_M
+      );
+      if (dupNearby) continue;
+      out.push(t);
+    }
+    return out;
+  }, [toilets, metersBetween]);
 
   const normalizePhotoUrl = useCallback((raw?: string) => {
     if (!raw) return undefined;
@@ -1774,10 +1796,20 @@ const MapScreen: React.FC = () => {
           </Text>
           <Text style={styles.backendBannerUrl}>Current: {API_BASE_URL}</Text>
           <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
-            <TouchableOpacity style={styles.backendBannerDismiss} onPress={() => getLocationAndToilets()}>
+            <TouchableOpacity
+              style={styles.backendBannerDismiss}
+              onPress={() => getLocationAndToilets()}
+              accessibilityRole="button"
+              accessibilityLabel={t('a11yRetryLoadToilets')}
+            >
               <Text style={styles.backendBannerDismissText}>{t('retry')}</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.backendBannerDismiss} onPress={() => setBackendBannerDismissed(true)}>
+            <TouchableOpacity
+              style={styles.backendBannerDismiss}
+              onPress={() => setBackendBannerDismissed(true)}
+              accessibilityRole="button"
+              accessibilityLabel={t('dismiss')}
+            >
               <Text style={styles.backendBannerDismissText}>{t('dismiss')}</Text>
             </TouchableOpacity>
           </View>
@@ -1801,6 +1833,8 @@ const MapScreen: React.FC = () => {
             (navigation as any).navigate('ToiletDetails', { toiletId: superToilet.toilet.id });
           }}
           activeOpacity={0.85}
+          accessibilityRole="button"
+          accessibilityLabel={`${t('a11ySuperToiletActivate')}: ${superToilet.toilet.name}`}
         >
           <View style={styles.superToiletBannerContent}>
             <Text style={styles.superToiletBannerLabel}>🏆 {t('superToiletOfTheDay')}</Text>
@@ -1817,6 +1851,8 @@ const MapScreen: React.FC = () => {
           <TouchableOpacity
             style={styles.superToiletBannerDismiss}
             onPress={(e) => { e.stopPropagation(); setSuperToiletDismissed(true); }}
+            accessibilityRole="button"
+            accessibilityLabel={t('dismiss')}
           >
             <Text style={styles.superToiletBannerDismissText}>✕</Text>
           </TouchableOpacity>
@@ -1844,6 +1880,7 @@ const MapScreen: React.FC = () => {
             value={searchQuery}
             onChangeText={setSearchQuery}
             onFocus={() => setShowSearch(true)}
+            accessibilityLabel={t('searchLandmarksPlaceholder')}
           />
           {searchQuery.length > 0 && (
             <TouchableOpacity
@@ -1853,6 +1890,8 @@ const MapScreen: React.FC = () => {
                 setSearchQuery('');
                 setShowSearch(false);
               }}
+              accessibilityRole="button"
+              accessibilityLabel={t('a11yClearSearch')}
             >
               <Text style={styles.clearButtonText}>✕</Text>
             </TouchableOpacity>
@@ -1869,6 +1908,8 @@ const MapScreen: React.FC = () => {
             { top: Math.max(insets.top, 8) + 8 },
           ]}
           onPress={() => setSettingsOpen(true)}
+          accessibilityRole="button"
+          accessibilityLabel={t('a11ySettings')}
         >
           <Text style={styles.topRightButtonText}>⋯</Text>
         </Pressable>
@@ -1893,6 +1934,9 @@ const MapScreen: React.FC = () => {
               <TouchableOpacity
                 style={styles.searchResultItem}
                 onPress={() => handleLandmarkSelect(item)}
+                accessibilityRole="button"
+                accessibilityLabel={`${t('a11ySelectLandmark')}: ${item.name}`}
+                accessibilityHint={item.address}
               >
                 <Text style={styles.searchResultName}>{item.name}</Text>
                 <Text style={styles.searchResultAddress}>{item.address}</Text>
@@ -2077,10 +2121,17 @@ const MapScreen: React.FC = () => {
               <Pressable
                 style={({ pressed }) => [styles.navDetailsButton, pressed && styles.navDetailsButtonPressed]}
                 onPress={() => setShowSteps(true)}
+                accessibilityRole="button"
+                accessibilityLabel={t('a11yRouteSteps')}
               >
                 <Text style={styles.navDetailsButtonText}>Details</Text>
               </Pressable>
-              <Pressable style={styles.navStopButton} onPress={clearDirections}>
+              <Pressable
+                style={styles.navStopButton}
+                onPress={clearDirections}
+                accessibilityRole="button"
+                accessibilityLabel={t('a11yStopNav')}
+              >
                 <Text style={styles.navStopButtonText}>Stop</Text>
               </Pressable>
             </View>
@@ -2099,9 +2150,9 @@ const MapScreen: React.FC = () => {
             >
               {(
                 [
-                  { key: 'driving' as const, label: 'Car' },
-                  { key: 'walking' as const, label: 'Walk' },
-                  { key: 'bicycling' as const, label: 'Bike' },
+                  { key: 'driving' as const, label: 'Car', a11y: 'a11yModeCar' as const },
+                  { key: 'walking' as const, label: 'Walk', a11y: 'a11yModeWalk' as const },
+                  { key: 'bicycling' as const, label: 'Bike', a11y: 'a11yModeBike' as const },
                 ] as const
               ).map((m) => (
                 <Pressable
@@ -2112,6 +2163,9 @@ const MapScreen: React.FC = () => {
                     pressed && styles.modeChipPressed,
                   ]}
                   onPress={() => setTravelMode(m.key)}
+                  accessibilityRole="button"
+                  accessibilityLabel={t(m.a11y)}
+                  accessibilityState={{ selected: travelMode === m.key }}
                 >
                   <Text style={[styles.modeChipText, travelMode === m.key && styles.modeChipTextActive]}>
                     {m.label}
@@ -2126,6 +2180,9 @@ const MapScreen: React.FC = () => {
                 pressed && styles.modeChipPressed,
               ]}
               onPress={() => setFollowUser(true)}
+              accessibilityRole="button"
+              accessibilityLabel={t('a11yFollowRoute')}
+              accessibilityState={{ selected: followUser }}
             >
               <Text style={[styles.followChipText, followUser && styles.followChipTextActive]}>
                 Follow
@@ -2327,7 +2384,12 @@ const MapScreen: React.FC = () => {
           <View style={[styles.settingsSheet, { paddingBottom: Math.max(insets.bottom, 16), height: (height - insets.top - insets.bottom) * 0.88 }]}>
           <View style={styles.settingsHeaderRow}>
             <Text style={styles.settingsTitle}>Settings</Text>
-            <Pressable style={styles.settingsClose} onPress={() => setSettingsOpen(false)}>
+            <Pressable
+              style={styles.settingsClose}
+              onPress={() => setSettingsOpen(false)}
+              accessibilityRole="button"
+              accessibilityLabel={t('a11yCloseSettings')}
+            >
               <Text style={styles.settingsCloseText}>✕</Text>
             </Pressable>
           </View>
@@ -2338,6 +2400,8 @@ const MapScreen: React.FC = () => {
               setSettingsOpen(false);
               (navigation as any).navigate('Login');
             }}
+            accessibilityRole="button"
+            accessibilityLabel={t('a11yOpenAccount')}
           >
             <View style={styles.settingsRowText}>
               <Text style={styles.settingsRowTitle}>{t('account')}</Text>
@@ -2351,8 +2415,11 @@ const MapScreen: React.FC = () => {
             style={styles.settingsRow}
             onPress={() => {
               setSettingsOpen(false);
-              (navigation as any).navigate('PoopGame');
+              if (user) (navigation as any).navigate('PoopGame');
+              else (navigation as any).navigate('Login', { returnTo: 'PoopGame' });
             }}
+            accessibilityRole="button"
+            accessibilityLabel={t('a11yPlayGameBar')}
           >
             <View style={styles.settingsRowText}>
               <Text style={styles.settingsRowTitle}>{t('catchThePoop')}</Text>
@@ -2367,6 +2434,8 @@ const MapScreen: React.FC = () => {
                 setSettingsOpen(false);
                 (navigation as any).navigate('Admin');
               }}
+              accessibilityRole="button"
+              accessibilityLabel={t('a11yOpenAdmin')}
             >
               <View style={styles.settingsRowText}>
                 <Text style={styles.settingsRowTitle}>{t('admin')}</Text>
@@ -2688,18 +2757,24 @@ const MapScreen: React.FC = () => {
           <Pressable
             style={({ pressed }) => [styles.zoomButton, pressed && styles.zoomButtonPressed]}
             onPress={recenterToUser}
+            accessibilityRole="button"
+            accessibilityLabel={t('a11yMapRecenter')}
           >
             <Text style={styles.zoomButtonText}>◎</Text>
           </Pressable>
           <Pressable
             style={({ pressed }) => [styles.zoomButton, pressed && styles.zoomButtonPressed]}
             onPress={() => zoomBy(1)}
+            accessibilityRole="button"
+            accessibilityLabel={t('a11yZoomIn')}
           >
             <Text style={styles.zoomButtonText}>＋</Text>
           </Pressable>
           <Pressable
             style={({ pressed }) => [styles.zoomButton, pressed && styles.zoomButtonPressed]}
             onPress={() => zoomBy(-1)}
+            accessibilityRole="button"
+            accessibilityLabel={t('a11yZoomOut')}
           >
             <Text style={styles.zoomButtonText}>－</Text>
           </Pressable>
@@ -2712,7 +2787,12 @@ const MapScreen: React.FC = () => {
           <View style={styles.reviewStripHeader}>
             <Text style={styles.reviewStripTitle}>{t('ploopReviewsNearby')}</Text>
             {routePolyline && (
-              <Pressable style={styles.clearRoutePill} onPress={clearDirections}>
+              <Pressable
+                style={styles.clearRoutePill}
+                onPress={clearDirections}
+                accessibilityRole="button"
+                accessibilityLabel={t('clearRoute')}
+              >
                 <Text style={styles.clearRoutePillText}>
                   {t('clearRoute')}{routeMeta?.durationText ? ` • ${routeMeta.durationText}` : ''}
                 </Text>
@@ -2722,6 +2802,10 @@ const MapScreen: React.FC = () => {
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             {toiletsWithReviews.slice(0, 12).map((toilet) => {
               const thumb = normalizePhotoUrl(toilet.photos?.[0]?.photo_url);
+              const chipName = parseToiletNameAndBadges(toilet.name).displayName || toilet.name;
+              const reviewBit = `${toilet.total_reviews} ${toilet.total_reviews === 1 ? t('review') : t('reviews')}`;
+              const distBit =
+                toilet.distance != null ? `, ${toilet.distance}${t('metersAway')}` : '';
               return (
                 <Pressable
                   key={toilet.id}
@@ -2741,6 +2825,9 @@ const MapScreen: React.FC = () => {
                       );
                     }
                   }}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${chipName}. ${reviewBit}${distBit}`}
+                  accessibilityHint={t('a11yReviewChipHint')}
                 >
                   {thumb ? (
                     <Image source={{ uri: thumb }} style={styles.reviewChipImage} />
@@ -2775,18 +2862,26 @@ const MapScreen: React.FC = () => {
             <Pressable
               style={({ pressed }) => [styles.toiletCardSosButton, pressed && styles.toiletCardIconButtonPressed]}
               onPress={() => setSosModalOpen(true)}
+              accessibilityRole="button"
+              accessibilityLabel={t('a11ySOSButton')}
             >
               <Text style={styles.toiletCardSosButtonText}>🆘 SOS</Text>
             </Pressable>
             <Pressable
               style={({ pressed }) => [styles.toiletCardIconButton, pressed && styles.toiletCardIconButtonPressed]}
               onPress={() => shareToilet(selectedToilet)}
+              accessibilityRole="button"
+              accessibilityLabel={t('a11yShareToilet')}
             >
               <Text style={styles.toiletCardIconButtonText}>↗</Text>
             </Pressable>
             <Pressable
               style={({ pressed }) => [styles.toiletCardIconButton, pressed && styles.toiletCardIconButtonPressed]}
               onPress={() => toggleFavorite(selectedToilet)}
+              accessibilityRole="button"
+              accessibilityLabel={
+                isFavorite(selectedToilet.id) ? t('a11yFavoriteRemove') : t('a11yFavoriteAdd')
+              }
             >
               <Text style={styles.toiletCardIconButtonText}>
                 {isFavorite(selectedToilet.id) ? '★' : '☆'}
@@ -2795,7 +2890,8 @@ const MapScreen: React.FC = () => {
             <Pressable
               style={({ pressed }) => [styles.toiletCardIconButton, pressed && styles.toiletCardIconButtonPressed]}
               onPress={() => setSelectedToilet(null)}
-              accessibilityLabel="Close"
+              accessibilityRole="button"
+              accessibilityLabel={t('a11yClosePanel')}
             >
               <Text style={styles.toiletCardIconButtonText}>✕</Text>
             </Pressable>
@@ -2907,6 +3003,8 @@ const MapScreen: React.FC = () => {
                   key={r.key}
                   style={({ pressed }) => [styles.reportChip, pressed && styles.reportChipPressed]}
                   onPress={() => submitReport(selectedToilet, r.key)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${t('report')}: ${r.label}`}
                 >
                   <Text style={styles.reportChipText}>{r.label}</Text>
                 </Pressable>
@@ -2925,6 +3023,8 @@ const MapScreen: React.FC = () => {
                 );
                 api.track('directions_started', { dest: 'toilet', toiletId: selectedToilet.id });
               }}
+              accessibilityRole="button"
+              accessibilityLabel={t('openInMaps')}
             >
               <Text style={styles.detailsButtonText}>{t('openInMaps')}</Text>
             </TouchableOpacity>
@@ -2936,6 +3036,8 @@ const MapScreen: React.FC = () => {
                 setSelectedToilet(null);
                 api.track('toilet_details_opened', { toiletId: selectedToilet.id });
               }}
+              accessibilityRole="button"
+              accessibilityLabel={t('viewDetails')}
             >
               <Text style={styles.detailsButtonText}>{t('viewDetails')}</Text>
             </TouchableOpacity>
@@ -2955,6 +3057,9 @@ const MapScreen: React.FC = () => {
                 pressed && styles.listTabButtonPressed,
               ]}
               onPress={() => setListTab('nearby')}
+              accessibilityRole="button"
+              accessibilityLabel={t('nearby')}
+              accessibilityState={{ selected: listTab === 'nearby' }}
             >
               <Text style={[styles.listTabText, listTab === 'nearby' && styles.listTabTextActive]}>{t('nearby')}</Text>
             </Pressable>
@@ -2973,6 +3078,9 @@ const MapScreen: React.FC = () => {
                   // ignore
                 }
               }}
+              accessibilityRole="button"
+              accessibilityLabel={t('saved')}
+              accessibilityState={{ selected: listTab === 'saved' }}
             >
               <Text style={[styles.listTabText, listTab === 'saved' && styles.listTabTextActive]}>{t('saved')}</Text>
             </Pressable>
@@ -2986,13 +3094,21 @@ const MapScreen: React.FC = () => {
                 setListTab('lists');
                 setActiveCollectionId(null);
               }}
+              accessibilityRole="button"
+              accessibilityLabel={t('lists')}
+              accessibilityState={{ selected: listTab === 'lists' }}
             >
               <Text style={[styles.listTabText, listTab === 'lists' && styles.listTabTextActive]}>{t('lists')}</Text>
             </Pressable>
           </View>
           {listTab === 'lists' && activeCollection && (
             <View style={styles.listDetailHeader}>
-              <Pressable style={styles.listDetailBack} onPress={() => setActiveCollectionId(null)}>
+              <Pressable
+                style={styles.listDetailBack}
+                onPress={() => setActiveCollectionId(null)}
+                accessibilityRole="button"
+                accessibilityLabel={t('a11yBackToLists')}
+              >
                 <Text style={styles.listDetailBackText}>← {t('lists')}</Text>
               </Pressable>
               <Text style={styles.listDetailTitle} numberOfLines={1}>
@@ -3020,6 +3136,8 @@ const MapScreen: React.FC = () => {
                 <Pressable
                   style={({ pressed }) => [styles.collectionRow, pressed && styles.listItemPressed]}
                   onPress={() => setActiveCollectionId((item as any).id)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${t('a11yOpenCollection')}: ${(item as any).name}`}
                 >
                   <View style={styles.collectionRowText}>
                     <Text style={styles.collectionRowTitle}>{(item as any).name}</Text>
@@ -3053,6 +3171,11 @@ const MapScreen: React.FC = () => {
                       // ignore
                     }
                   }}
+                  accessibilityRole="button"
+                  accessibilityLabel={
+                    parseToiletNameAndBadges((item as any).name).displayName || (item as any).name
+                  }
+                  accessibilityHint={t('a11yListRowHint')}
               >
                 <View style={styles.listItemContent}>
                   <View style={styles.listItemTopRow}>
@@ -3101,6 +3224,8 @@ const MapScreen: React.FC = () => {
                 <Pressable
                   style={({ pressed }) => [styles.showMoreButton, pressed && styles.showMoreButtonPressed]}
                   onPress={() => setNearbyListLimit((n) => n + 10)}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('a11yShowMoreToilets')}
                 >
                   <Text style={styles.showMoreButtonText}>
                     {t('showMore')} ({nearbyToiletsSorted.length - nearbyListLimit} {t('moreCount')})
@@ -3123,6 +3248,9 @@ const MapScreen: React.FC = () => {
             pressed && styles.viewModeButtonPressed,
           ]}
           onPress={() => setViewMode('map')}
+          accessibilityRole="button"
+          accessibilityLabel={t('a11yMapMode')}
+          accessibilityState={{ selected: viewMode === 'map' }}
         >
           <Text style={[styles.viewModeButtonText, viewMode === 'map' && styles.viewModeButtonTextActive]}>
             🗺️ {t('map')}
@@ -3135,6 +3263,9 @@ const MapScreen: React.FC = () => {
             pressed && styles.viewModeButtonPressed,
           ]}
           onPress={() => setViewMode('list')}
+          accessibilityRole="button"
+          accessibilityLabel={t('a11yListMode')}
+          accessibilityState={{ selected: viewMode === 'list' }}
         >
           <Text style={[styles.viewModeButtonText, viewMode === 'list' && styles.viewModeButtonTextActive]}>
             📋 {t('list')}
@@ -3147,7 +3278,13 @@ const MapScreen: React.FC = () => {
           { bottom: Math.max(insets.bottom, 20) },
           pressed && styles.viewModeButtonPressed,
         ]}
-        onPress={() => (navigation as any).navigate('PoopGame')}
+        onPress={() =>
+          user
+            ? (navigation as any).navigate('PoopGame')
+            : (navigation as any).navigate('Login', { returnTo: 'PoopGame' })
+        }
+        accessibilityRole="button"
+        accessibilityLabel={`${t('alreadyPlooping')}. ${t('a11yPlayGameBar')}`}
       >
         <Text style={styles.alreadyPloopingBarText}>💩 {t('alreadyPlooping')}</Text>
       </Pressable>
@@ -3198,6 +3335,8 @@ const MapScreen: React.FC = () => {
                     console.error('Error sharing:', error);
                   }
                 }}
+                accessibilityRole="button"
+                accessibilityLabel={t('a11ySharePlace')}
               >
                 <Text style={styles.iconButtonText}>↗</Text>
               </TouchableOpacity>
@@ -3213,6 +3352,14 @@ const MapScreen: React.FC = () => {
                     Alert.alert('Save', 'Add this place to Ploop first (leave a review) to save it.');
                   }
                 }}
+                accessibilityRole="button"
+                accessibilityLabel={
+                  tappedPoiToilet
+                    ? isFavorite(tappedPoiToilet.id)
+                      ? t('a11yFavoriteRemove')
+                      : t('a11yFavoriteAdd')
+                    : t('a11yBookmarkPlace')
+                }
               >
                 <Text style={styles.iconButtonText}>
                   {tappedPoiToilet && isFavorite(tappedPoiToilet.id) ? '★' : '🔖'}
@@ -3221,6 +3368,8 @@ const MapScreen: React.FC = () => {
               <TouchableOpacity
                 style={styles.iconButton}
                 onPress={() => setTappedLocation(null)}
+                accessibilityRole="button"
+                accessibilityLabel={t('a11yClosePlaceSheet')}
               >
                 <Text style={styles.iconButtonText}>✕</Text>
               </TouchableOpacity>
@@ -3263,6 +3412,8 @@ const MapScreen: React.FC = () => {
                   tappedLocation.place?.name || tappedLocation.location?.address || t('destination')
                 );
               }}
+              accessibilityRole="button"
+              accessibilityLabel={t('openInMaps')}
             >
               <Text style={styles.bottomSheetActionButtonText}>{t('openInMaps')}</Text>
             </TouchableOpacity>
@@ -3278,6 +3429,8 @@ const MapScreen: React.FC = () => {
                 });
                 setTappedLocation(null);
               }}
+              accessibilityRole="button"
+              accessibilityLabel={t('reviewButton')}
             >
               <Text style={[styles.bottomSheetActionButtonText, styles.bottomSheetActionButtonTextSecondary]}>{t('reviewButton')}</Text>
             </TouchableOpacity>

@@ -1,10 +1,11 @@
 /**
- * Blocks the app until backend is reachable AND location + toilets are loaded.
+ * After permission + location: keeps the loading screen ~0.9–3.8s while toilets load in the background.
+ * Map appears after that window (or sooner if API finishes after the minimum). MapScreen refetches if toilets were deferred.
  * Shows language picker inline when user hasn't chosen yet (choose while loading).
- * MapScreen consumes preloaded data via MapPreloadContext to skip its own loading.
  */
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { View, Text, StyleSheet, Pressable, Platform } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
 import { api, type Toilet } from '../services/api';
 import { searchNearbyToilets as searchGaodeToilets } from '../services/gaodePoi';
@@ -24,8 +25,13 @@ import {
 } from '../utils/loadDiagnostics';
 
 const LOCATION_TIMEOUT_MS = 6000;
+/** Minimum splash time after coords (animation + API head start) */
+const MIN_LOADING_AFTER_COORDS_MS = 900;
+/** Cap splash after coords (~4s max) while toilets load */
+const MAX_LOADING_AFTER_COORDS_MS = 3800;
 // Fallback when getLastKnownPositionAsync returns null (common on Android) – show map fast, refetch when GPS locks
 const FALLBACK_COORDS = { latitude: 37.7749, longitude: -122.4194 };
+const LAST_COORDS_KEY = 'ploop.lastKnownCoords';
 
 function metersBetween(
   a: { latitude: number; longitude: number },
@@ -44,101 +50,206 @@ function metersBetween(
   return R * c;
 }
 
+function sleep(ms: number) {
+  return new Promise<void>((r) => setTimeout(r, ms));
+}
+
+async function saveLastCoords(coords: { latitude: number; longitude: number }): Promise<void> {
+  try {
+    await AsyncStorage.setItem(LAST_COORDS_KEY, JSON.stringify(coords));
+  } catch {
+    // non-critical
+  }
+}
+
+async function loadLastCoords(): Promise<{ latitude: number; longitude: number } | null> {
+  try {
+    const raw = await AsyncStorage.getItem(LAST_COORDS_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (isValidCoord(parsed)) return parsed;
+  } catch {
+    // ignore
+  }
+  return null;
+}
+
+function isValidCoord(c: { latitude: number; longitude: number }): boolean {
+  return (
+    typeof c.latitude === 'number' &&
+    typeof c.longitude === 'number' &&
+    Number.isFinite(c.latitude) &&
+    Number.isFinite(c.longitude) &&
+    Math.abs(c.latitude) <= 90 &&
+    Math.abs(c.longitude) <= 180
+  );
+}
+
+function sanitizeToiletList(
+  coords: { latitude: number; longitude: number },
+  list: Toilet[]
+): Toilet[] {
+  return list.filter(
+    (t) =>
+      t &&
+      typeof t.latitude === 'number' &&
+      typeof t.longitude === 'number' &&
+      Number.isFinite(t.latitude) &&
+      Number.isFinite(t.longitude)
+  );
+}
+
+async function fetchMergedToilets(
+  coords: { latitude: number; longitude: number },
+  mergeWithGaode: boolean
+): Promise<Toilet[]> {
+  if (!isValidCoord(coords)) return [];
+  const [backendRes, gaodeToilets] = await Promise.all([
+    api.getNearbyToilets({
+      latitude: coords.latitude,
+      longitude: coords.longitude,
+      radius: 2000,
+    }),
+    mergeWithGaode
+      ? searchGaodeToilets({
+          latitude: coords.latitude,
+          longitude: coords.longitude,
+          radius: 5000,
+          limit: 80,
+        })
+      : Promise.resolve([]),
+  ]);
+  const backendToilets = sanitizeToiletList(coords, backendRes?.toilets ?? []);
+  const gaodeSanitized = sanitizeToiletList(coords, Array.isArray(gaodeToilets) ? gaodeToilets : []);
+  const DEDUPE_METERS = 40;
+  const mergeAndSort = (bt: Toilet[], gt: Toilet[]): Toilet[] => {
+    const isNear = (a: Toilet, b: Toilet) =>
+      metersBetween(
+        { latitude: a.latitude, longitude: a.longitude },
+        { latitude: b.latitude, longitude: b.longitude }
+      ) < DEDUPE_METERS;
+    const gaodeFiltered = gt.filter((g) => !bt.some((b) => isNear(g, b)));
+    const merged = [...bt, ...gaodeFiltered];
+    return merged
+      .map((t) => ({
+        ...t,
+        distance:
+          t.distance ??
+          Math.round(metersBetween(coords, { latitude: t.latitude, longitude: t.longitude })),
+      }))
+      .sort((a, b) => (a.distance ?? 999999) - (b.distance ?? 999999));
+  };
+  try {
+    return mergeWithGaode ? mergeAndSort(backendToilets, gaodeSanitized) : backendToilets;
+  } catch {
+    return backendToilets;
+  }
+}
+
+async function waitForToiletsWithSplashBudget(
+  coords: { latitude: number; longitude: number },
+  mergeWithGaode: boolean,
+  isStale: () => boolean,
+  onProgress: (pct: number) => void
+): Promise<{ toilets: Toilet[]; toiletsDeferred: boolean }> {
+  if (!isValidCoord(coords)) {
+    return { toilets: [], toiletsDeferred: true };
+  }
+  const t0 = Date.now();
+  startApiPhase();
+  let resolved: Toilet[] | null = null;
+  fetchMergedToilets(coords, mergeWithGaode)
+    .then((t) => {
+      resolved = t;
+    })
+    .catch(() => {
+      // Leave null so caller can defer refetch on map; avoid treating errors as "empty list"
+      resolved = null;
+    });
+
+  await sleep(MIN_LOADING_AFTER_COORDS_MS);
+  if (isStale()) {
+    markApiDone();
+    return { toilets: [], toiletsDeferred: true };
+  }
+
+  onProgress(70);
+
+  while (Date.now() - t0 < MAX_LOADING_AFTER_COORDS_MS) {
+    if (resolved !== null) {
+      markApiDone();
+      onProgress(100);
+      return { toilets: resolved, toiletsDeferred: false };
+    }
+    const elapsed = Date.now() - t0;
+    onProgress(50 + Math.min(45, Math.floor((elapsed / MAX_LOADING_AFTER_COORDS_MS) * 45)));
+    await sleep(80);
+    if (isStale()) {
+      markApiDone();
+      return { toilets: [], toiletsDeferred: true };
+    }
+  }
+
+  markApiDone();
+  onProgress(100);
+  return {
+    toilets: resolved ?? [],
+    toiletsDeferred: resolved === null,
+  };
+}
+
 export function AppLoadingGate({ children }: { children: React.ReactNode }) {
   const { t, locale, localeStatus, setLocale } = useLanguage();
   const { provider: mapProvider, simulateChinaLocation, BEIJING_COORDS } = useMapProvider();
   const [tagline] = useState(() => getOxymoronicTagline());
   const [loadStatus, setLoadStatus] = useState<'loading' | 'ready' | 'failed' | 'denied'>('loading');
   const [loadAttempts, setLoadAttempts] = useState(0);
-  const [loadPhase, setLoadPhase] = useState<'location' | 'toilets'>('location');
   const [loadProgress, setLoadProgress] = useState(0);
   const [preloadData, setPreloadData] = useState<MapPreloadData | null>(null);
-  const cancelledRef = useRef(false);
+  /** Bumped when this load run is superseded or the gate unmounts — avoids setState after stale async work */
+  const loadGenerationRef = useRef(0);
 
   const runFullLoad = useCallback(async () => {
+    const myGeneration = ++loadGenerationRef.current;
+    const isStale = () => loadGenerationRef.current !== myGeneration;
+
     setLoadStatus('loading');
     setLoadAttempts((a) => a + 1);
-    setLoadPhase('location');
     setLoadProgress(0);
-    cancelledRef.current = false;
     startLoadDiagnostics();
 
-    let cancelled = () => cancelledRef.current;
     try {
       if (simulateChinaLocation) {
-        try {
-          markPermissionDone();
-          if (!cancelled()) setLoadProgress(25);
-          startApiPhase();
-          if (!cancelled()) setLoadProgress(50);
-          const coords = BEIJING_COORDS;
-          const mergeWithGaode = mapProvider === 'amap';
-          const [backendRes, gaodeToilets] = await Promise.all([
-            api.getNearbyToilets({
-              latitude: coords.latitude,
-              longitude: coords.longitude,
-              radius: 2000,
-            }),
-            mergeWithGaode
-              ? searchGaodeToilets({
-                  latitude: coords.latitude,
-                  longitude: coords.longitude,
-                  radius: 5000,
-                  limit: 80,
-                })
-              : Promise.resolve([]),
-          ]);
-          const backendToilets = backendRes?.toilets ?? [];
-          const DEDUPE_METERS = 40;
-          const mergeAndSort = (bt: Toilet[], gt: Toilet[]): Toilet[] => {
-            const isNear = (a: Toilet, b: Toilet) =>
-              metersBetween(
-                { latitude: a.latitude, longitude: a.longitude },
-                { latitude: b.latitude, longitude: b.longitude }
-              ) < DEDUPE_METERS;
-            const gaodeFiltered = gt.filter((g) => !bt.some((b) => isNear(g, b)));
-            const merged = [...bt, ...gaodeFiltered];
-            return merged
-              .map((t) => ({
-                ...t,
-                distance:
-                  t.distance ??
-                  Math.round(metersBetween(coords, { latitude: t.latitude, longitude: t.longitude })),
-              }))
-              .sort((a, b) => (a.distance ?? 999999) - (b.distance ?? 999999));
-          };
-          const toilets = mergeWithGaode ? mergeAndSort(backendToilets, gaodeToilets) : backendToilets;
-          markApiDone();
-          if (!cancelled()) setLoadProgress(100);
-          if (!cancelled()) {
-            setPreloadData({
-              location: { coords } as Location.LocationObject,
-              toilets,
-            });
-            setLoadStatus('ready');
-            const diag = finishLoadDiagnostics(true);
-            sendLoadDiagnosticsToBackend(diag);
+        markPermissionDone();
+        startLocationPhase();
+        markLocationDone('currentPosition');
+        const mergeWithGaode = mapProvider === 'amap';
+        if (!isStale()) setLoadProgress(45);
+        const apiResult = await waitForToiletsWithSplashBudget(
+          BEIJING_COORDS,
+          mergeWithGaode,
+          isStale,
+          (pct) => {
+            if (!isStale()) setLoadProgress(pct);
           }
-        } catch {
-          markApiDone();
-          if (!cancelled()) {
-            setPreloadData({
-              location: { coords: BEIJING_COORDS } as Location.LocationObject,
-              toilets: [],
-            });
-            setLoadStatus('ready');
-          }
-          const diag = finishLoadDiagnostics(true);
-          sendLoadDiagnosticsToBackend(diag);
-        }
+        );
+        if (isStale()) return;
+        setPreloadData({
+          location: { coords: BEIJING_COORDS } as Location.LocationObject,
+          toilets: apiResult.toilets,
+          toiletsDeferred: apiResult.toiletsDeferred,
+        });
+        setLoadStatus('ready');
+        const diag = finishLoadDiagnostics(true);
+        sendLoadDiagnosticsToBackend(diag);
         return;
       }
 
       try {
         const { status } = await Location.requestForegroundPermissionsAsync();
         markPermissionDone();
-        if (!cancelled()) setLoadProgress(25);
-        if (cancelled()) return;
+        if (!isStale()) setLoadProgress(25);
+        if (isStale()) return;
         if (status !== 'granted') {
           setLoadStatus('denied');
           setPreloadData(null);
@@ -160,15 +271,17 @@ export function AppLoadingGate({ children }: { children: React.ReactNode }) {
               longitude: lastKnown.coords.longitude,
             };
             locationSource = 'lastKnown';
+            saveLastCoords(coords);
           }
         } catch {
           // ignore
         }
         let preliminary = false;
         if (!coords) {
-          // Android: when lastKnown is null, don't block 5–10s. Use fallback coords, show map fast, refetch when GPS locks.
+          // Android: when lastKnown is null, don't block 5–10s. Use last-cached or fallback coords, show map fast, refetch when GPS locks.
           if (Platform.OS === 'android') {
-            coords = FALLBACK_COORDS;
+            const cachedCoords = await loadLastCoords();
+            coords = cachedCoords ?? FALLBACK_COORDS;
             preliminary = true;
             markLocationDone('timeout'); // we're not waiting for GPS
           } else {
@@ -183,6 +296,7 @@ export function AppLoadingGate({ children }: { children: React.ReactNode }) {
               if (pos?.coords) {
                 coords = { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
                 locationSource = 'currentPosition';
+                saveLastCoords(coords);
               }
             } catch {
               locationSource = 'timeout';
@@ -195,7 +309,8 @@ export function AppLoadingGate({ children }: { children: React.ReactNode }) {
           markLocationDone(locationSource);
         }
 
-        if (cancelled() || !coords) {
+        if (isStale()) return;
+        if (!coords) {
           setLoadStatus('denied');
           setPreloadData(null);
           const diag = finishLoadDiagnostics(false);
@@ -203,61 +318,29 @@ export function AppLoadingGate({ children }: { children: React.ReactNode }) {
           return;
         }
 
-        if (!cancelled()) setLoadProgress(50);
-        setLoadPhase('toilets');
-        startApiPhase();
         const mergeWithGaode = mapProvider === 'amap';
-        const [backendRes, gaodeToilets] = await Promise.all([
-          api.getNearbyToilets({
-            latitude: coords.latitude,
-            longitude: coords.longitude,
-            radius: 2000,
-          }),
-          mergeWithGaode
-            ? searchGaodeToilets({
-                latitude: coords.latitude,
-                longitude: coords.longitude,
-                radius: 5000,
-                limit: 80,
-              })
-            : Promise.resolve([]),
-        ]);
-        const backendToilets = backendRes?.toilets ?? [];
-        const DEDUPE_METERS = 40;
-        const mergeAndSort = (bt: Toilet[], gt: Toilet[]): Toilet[] => {
-          const isNear = (a: Toilet, b: Toilet) =>
-            metersBetween(
-              { latitude: a.latitude, longitude: a.longitude },
-              { latitude: b.latitude, longitude: b.longitude }
-            ) < DEDUPE_METERS;
-          const gaodeFiltered = gt.filter((g) => !bt.some((b) => isNear(g, b)));
-          const merged = [...bt, ...gaodeFiltered];
-          return merged
-            .map((t) => ({
-              ...t,
-              distance:
-                t.distance ??
-                Math.round(metersBetween(coords!, { latitude: t.latitude, longitude: t.longitude })),
-            }))
-            .sort((a, b) => (a.distance ?? 999999) - (b.distance ?? 999999));
-        };
-        const toilets = mergeWithGaode ? mergeAndSort(backendToilets, gaodeToilets) : backendToilets;
-        markApiDone();
-        if (!cancelled()) setLoadProgress(100);
+        if (!isStale()) setLoadProgress(45);
+        const apiResult = await waitForToiletsWithSplashBudget(
+          coords,
+          mergeWithGaode,
+          isStale,
+          (pct) => {
+            if (!isStale()) setLoadProgress(pct);
+          }
+        );
+        if (isStale()) return;
 
-        if (!cancelled()) {
-          setPreloadData({
-            location: { coords } as Location.LocationObject,
-            toilets,
-            preliminary: preliminary || undefined,
-          });
-          setLoadStatus('ready');
-          const diag = finishLoadDiagnostics(true);
-          sendLoadDiagnosticsToBackend(diag);
-        }
+        setPreloadData({
+          location: { coords } as Location.LocationObject,
+          toilets: apiResult.toilets,
+          preliminary: preliminary || undefined,
+          toiletsDeferred: apiResult.toiletsDeferred,
+        });
+        setLoadStatus('ready');
+        const diag = finishLoadDiagnostics(true);
+        sendLoadDiagnosticsToBackend(diag);
       } catch {
-        markApiDone();
-        if (!cancelled()) {
+        if (!isStale()) {
           setLoadStatus('failed');
           setPreloadData(null);
           const diag = finishLoadDiagnostics(false);
@@ -272,7 +355,7 @@ export function AppLoadingGate({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     runFullLoad();
     return () => {
-      cancelledRef.current = true;
+      loadGenerationRef.current += 1;
     };
   }, [runFullLoad]);
 
@@ -348,15 +431,11 @@ export function AppLoadingGate({ children }: { children: React.ReactNode }) {
           <Text style={styles.message}>
             {loadAttempts > 1
               ? t('connectingAttempt').replace('{n}', String(loadAttempts))
-              : loadPhase === 'toilets'
-                ? t('fetchingToilets')
-                : t('betterThanYouThink')}
+              : t('betterThanYouThink')}
           </Text>
-          {loadPhase === 'location' ? (
-            <Text style={styles.hint}>{t('loadingLocation')}</Text>
-          ) : (
-            <Text style={styles.hint}>{t('fetchingToilets')}</Text>
-          )}
+          <Text style={styles.hint}>
+            {loadProgress >= 45 ? t('fetchingToilets') : t('loadingLocation')}
+          </Text>
         </>
       ) : loadStatus === 'failed' ? (
         <>

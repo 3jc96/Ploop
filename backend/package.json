@@ -10,7 +10,8 @@
     "migrate": "ts-node src/migrations/run.ts",
     "import-toilets": "ts-node scripts/import-toilets-to-render.ts",
     "set-johor-bahru-bidet": "ts-node scripts/set-johor-bahru-bidet.ts",
-    "backfill-city": "ts-node scripts/backfill-city.ts"
+    "backfill-city": "ts-node scripts/backfill-city.ts",
+    "import-book1-pdf": "ts-node scripts/import-book1-bidet-pdf.ts"
   },
   "keywords": [
     "toilet",
@@ -50,6 +51,7 @@
     "@types/nodemailer": "^6.4.23",
     "@types/pg": "^8.10.9",
     "@types/uuid": "^9.0.1",
+    "pdf-parse": "^1.1.1",
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.3.3"
   }

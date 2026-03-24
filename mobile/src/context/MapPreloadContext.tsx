@@ -11,6 +11,11 @@ export interface MapPreloadData {
   toilets: Toilet[];
   /** When true, coords are a fallback (e.g. default); MapScreen will refetch when real location arrives */
   preliminary?: boolean;
+  /**
+   * When true, gate showed the map before toilets loaded; MapScreen should fetch pins (e.g. useFocusEffect).
+   * When false/undefined and toilets.length > 0, data came from the gate in one shot (legacy / future use).
+   */
+  toiletsDeferred?: boolean;
 }
 
 const MapPreloadContext = createContext<MapPreloadData | null>(null);

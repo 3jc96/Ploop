@@ -24,7 +24,9 @@ export function getErrorMessage(
   fallback: string = 'Something went wrong. Please try again.'
 ): string {
   if (error?.response?.data?.error && typeof error.response.data.error === 'string') {
-    return error.response.data.error;
+    const msg = error.response.data.error;
+    const hint = error?.response?.data?.hint;
+    return hint ? `${msg}\n\n${hint}` : msg;
   }
   const errors = error?.response?.data?.errors;
   if (Array.isArray(errors) && errors[0]?.msg) {

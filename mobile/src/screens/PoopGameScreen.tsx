@@ -28,13 +28,19 @@ const GAME_HEIGHT = 480;
 
 const TOILET_WIDTH = 80;
 
-/** Strip email from display_name (e.g. "Joel (a@b.com)" → "Joel") for scoreboard privacy. */
+/**
+ * Scoreboard privacy: strip trailing " (email)" suffix, then drop the last name
+ * (last space-separated segment). "Joel Chu" → "Joel"; "Mary Jane Lee" → "Mary Jane".
+ */
 function displayNameForScoreboard(name: string | null | undefined, anonymousLabel: string): string {
-  const n = (name || '').trim();
+  let n = (name || '').trim();
   if (!n) return anonymousLabel;
   const parenIdx = n.indexOf(' (');
-  if (parenIdx > 0 && n.endsWith(')')) return n.slice(0, parenIdx).trim();
-  return n;
+  if (parenIdx > 0 && n.endsWith(')')) n = n.slice(0, parenIdx).trim();
+  if (!n) return anonymousLabel;
+  const parts = n.split(/\s+/).filter(Boolean);
+  if (parts.length <= 1) return n;
+  return parts.slice(0, -1).join(' ');
 }
 const TOILET_HEIGHT = 50;
 const POOP_SIZE = 28;

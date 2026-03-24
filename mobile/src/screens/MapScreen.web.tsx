@@ -150,8 +150,16 @@ export default function MapScreenWeb() {
       setLoading(false);
       setUsedDefaultLocation(false);
       setLocationError(null);
+      // Web has no useFocusEffect refetch: if gate timed out before API, load pins now
+      if (
+        preload.toiletsDeferred &&
+        Number.isFinite(c.latitude) &&
+        Number.isFinite(c.longitude)
+      ) {
+        fetchNearby(c).catch(() => {});
+      }
     }
-  }, [preload]);
+  }, [preload, fetchNearby]);
 
   // Fetch toilets for default coords immediately so map shows something fast (don't wait for location)
   useEffect(() => {
@@ -333,7 +341,11 @@ export default function MapScreenWeb() {
             <Text style={styles.blueHeaderTitle}>Ploop – Find Toilets</Text>
             <View style={styles.headerActions}>
               <Pressable
-                onPress={() => (navigation as any).navigate('PoopGame')}
+                onPress={() =>
+                  user
+                    ? (navigation as any).navigate('PoopGame')
+                    : (navigation as any).navigate('Login', { returnTo: 'PoopGame' })
+                }
                 style={({ pressed }) => [styles.accountBtn, pressed && styles.btnPressed]}
                 accessibilityRole="button"
                 accessibilityLabel="Already Plooping - Play game"
