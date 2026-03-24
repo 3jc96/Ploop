@@ -177,6 +177,7 @@ app.use('/api/hints', hintsRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/poop-game', poopGameRouter);
 app.use('/api/suggestions', suggestionsRouter);
+app.use('/api/internal', internalJobsRouter);
 app.use('/api', diagnosticsRouter);
 
 // Error handling middleware
@@ -186,6 +187,27 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
     error: err.message || 'Internal server error',
   });
 });
+
+/**
+ * Pings own /health every 14 minutes on Render free/hobby tier to prevent sleep.
+ * Only active in production and when RENDER_EXTERNAL_URL or SELF_PING_URL is set.
+ * No-op in dev (no env var set).
+ */
+function scheduleKeepAlive(port: number): void {
+  const selfUrl = process.env.RENDER_EXTERNAL_URL || process.env.SELF_PING_URL;
+  if (!selfUrl || process.env.NODE_ENV !== 'production') return;
+  const pingUrl = `${selfUrl.replace(/\/$/, '')}/health`;
+  const INTERVAL_MS = 14 * 60 * 1000; // 14 minutes (Render free sleeps at 15)
+  setInterval(async () => {
+    try {
+      const res = await fetch(pingUrl);
+      if (!res.ok) console.warn(`[KeepAlive] Ping returned ${res.status}`);
+    } catch (e: any) {
+      console.warn('[KeepAlive] Ping failed:', e?.message);
+    }
+  }, INTERVAL_MS);
+  console.log(`[KeepAlive] Pinging ${pingUrl} every 14 min to prevent sleep`);
+}
 
 // Bootstrap: verify DB → ensure tables → start server
 async function start(): Promise<void> {
@@ -208,6 +230,7 @@ async function start(): Promise<void> {
     console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
     console.log(`(Listening on all interfaces so your phone can connect when on the same Wi‑Fi)`);
     scheduleMonthlyPoopGameTop3Report();
+    scheduleKeepAlive(PORT);
   });
 
   function shutdown(signal: string) {

@@ -94,9 +94,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         await refreshUser();
         return true;
       } catch (e: any) {
+        const status = e?.response?.status;
         let msg = getErrorMessage(e, 'Invalid email or password');
-        if (e?.response?.status === 404) {
+        if (status === 404) {
           msg = 'Email sign-in may not be deployed yet. Try Google or Apple, or use a local backend.';
+        } else if (status === 502 || status === 503) {
+          msg = 'Server is starting up. Please try again in a moment.';
         }
         setState((s) => ({ ...s, error: msg }));
         Alert.alert('Sign in failed', msg);
@@ -114,9 +117,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         await refreshUser();
         return true;
       } catch (e: any) {
+        const status = e?.response?.status;
         let msg = getErrorMessage(e, 'Registration failed');
-        if (e?.response?.status === 404) {
+        if (status === 404) {
           msg = 'Email sign-up may not be deployed yet. Try Google or Apple, or use a local backend.';
+        } else if (status === 502 || status === 503) {
+          msg = 'Server is starting up. Please try again in a moment.';
         }
         setState((s) => ({ ...s, error: msg }));
         Alert.alert('Registration failed', msg);

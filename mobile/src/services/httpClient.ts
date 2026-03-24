@@ -23,12 +23,23 @@ function isRetryable(error: AxiosError): boolean {
   return false;
 }
 
+/** 502/503 = gateway errors: the server never processed the request, so POST/PUT retries are safe. */
+function isGatewayError(error: AxiosError): boolean {
+  const status = error.response?.status;
+  return status === 502 || status === 503;
+}
+
 function isIdempotent(config: AxiosRequestConfig): boolean {
   const method = (config.method || 'get').toLowerCase();
   return method === 'get' || method === 'head' || method === 'options';
 }
 
-function getRetryDelay(attempt: number): number {
+function getRetryDelay(attempt: number, error?: AxiosError): number {
+  // 502/503 = server cold-starting; wait longer before retry (3s, 6s, 12s...)
+  if (error && isGatewayError(error)) {
+    const delay = 3000 * Math.pow(2, attempt);
+    return Math.min(delay, MAX_RETRY_DELAY_MS);
+  }
   const delay = INITIAL_RETRY_DELAY_MS * Math.pow(2, attempt);
   return Math.min(delay, MAX_RETRY_DELAY_MS);
 }
@@ -78,11 +89,13 @@ function createClient(): AxiosInstance {
       const shouldRetry =
         retryCount < MAX_RETRIES &&
         isRetryable(error) &&
-        (isIdempotent(config) || retryCount === 0);
+        // Allow full retries for GET/HEAD/OPTIONS, or for 502/503 (server never processed the request)
+        // Non-idempotent (POST/PUT/DELETE) on app-level errors (500/504) retry only once to avoid duplicates
+        (isIdempotent(config) || isGatewayError(error) || retryCount === 0);
 
       if (shouldRetry) {
         config._retryCount = retryCount + 1;
-        const delay = getRetryDelay(retryCount);
+        const delay = getRetryDelay(retryCount, error);
         if (__DEV__) {
           console.warn(`[Ploop HTTP] Retry ${retryCount + 1}/${MAX_RETRIES} in ${delay}ms: ${(config as any)?._reqId}`, error.message);
         }
