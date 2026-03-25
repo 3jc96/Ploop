@@ -11,7 +11,8 @@
     "import-toilets": "ts-node scripts/import-toilets-to-render.ts",
     "set-johor-bahru-bidet": "ts-node scripts/set-johor-bahru-bidet.ts",
     "backfill-city": "ts-node scripts/backfill-city.ts",
-    "import-book1-pdf": "ts-node scripts/import-book1-bidet-pdf.ts"
+    "import-book1-pdf": "ts-node scripts/import-book1-bidet-pdf.ts",
+    "import-global": "ts-node scripts/import-global-toilets.ts"
   },
   "keywords": [
     "toilet",
