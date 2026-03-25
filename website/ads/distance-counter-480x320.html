@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=480,initial-scale=1">
+<meta name="ad.size" content="width=480,height=320">
+<meta name="ad.orientation" content="landscape">
+<title>Ploop — Distance Counter</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body,html{width:480px;height:320px;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+#ad{position:relative;width:480px;height:320px;background:#111827;cursor:pointer;overflow:hidden;display:flex}
+
+.grid{position:absolute;inset:0;opacity:.07;background-image:
+  linear-gradient(rgba(33,150,243,.5) 1px,transparent 1px),
+  linear-gradient(90deg,rgba(33,150,243,.5) 1px,transparent 1px);
+  background-size:32px 32px;animation:gridScroll 3s linear infinite}
+@keyframes gridScroll{to{background-position:32px 32px}}
+
+.radar{position:absolute;top:50%;left:35%;width:0;height:0;border-radius:50%;border:2px solid rgba(33,150,243,.3);transform:translate(-50%,-50%);opacity:0}
+.radar.ping{animation:radarPing 2s ease-out forwards}
+@keyframes radarPing{0%{width:0;height:0;opacity:.8}100%{width:320px;height:320px;opacity:0}}
+
+/* --- Left panel --- */
+.left{flex:0 0 240px;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;z-index:2}
+
+/* --- Right panel --- */
+.right{flex:1;display:flex;flex-direction:column;justify-content:center;padding:0 24px 0 0;position:relative;z-index:2}
+
+/* --- Logo --- */
+.logo{position:absolute;top:12px;left:14px;display:flex;align-items:center;gap:6px;z-index:4}
+.logo-dot{width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#2196f3,#6366f1);display:flex;align-items:center;justify-content:center;font-size:11px;color:#fff;font-weight:700}
+.logo-text{font-size:14px;font-weight:800;color:#e2e8f0;letter-spacing:.3px}
+
+/* --- Question --- */
+.question{text-align:center;font-size:15px;font-weight:700;color:#e2e8f0;line-height:1.4;opacity:0;transform:translateY(10px);transition:all .6s ease}
+.question.show{opacity:1;transform:translateY(0)}
+.question em{color:#60a5fa;font-style:normal}
+
+/* --- Counter --- */
+.counter-wrap{text-align:center;opacity:0;transition:opacity .4s ease}
+.counter-wrap.show{opacity:1}
+.counter{font-size:64px;font-weight:800;color:#fff;font-variant-numeric:tabular-nums;letter-spacing:-2px}
+.counter span{font-size:24px;font-weight:600;color:#94a3b8;vertical-align:baseline;margin-left:2px}
+.counter-label{font-size:12px;color:#64748b;margin-top:2px;letter-spacing:1.5px;text-transform:uppercase}
+
+/* --- Pin --- */
+.pin{position:absolute;top:45%;left:35%;transform:translate(-50%,-100%) scale(0);font-size:40px;filter:drop-shadow(0 4px 14px rgba(33,150,243,.5));transition:transform .5s cubic-bezier(.34,1.56,.64,1);z-index:3}
+.pin.drop{transform:translate(-50%,-100%) scale(1)}
+
+/* --- Result --- */
+.result-panel{opacity:0;transform:translateX(20px);transition:all .6s ease}
+.result-panel.show{opacity:1;transform:translateX(0)}
+.result-name{font-size:15px;font-weight:700;color:#fff}
+.result-meta{display:flex;align-items:center;gap:8px;margin-top:4px;flex-wrap:wrap}
+.result-stars{color:#facc15;font-size:13px;letter-spacing:1px}
+.result-tag{font-size:10px;background:rgba(33,150,243,.2);color:#60a5fa;padding:2px 8px;border-radius:6px;font-weight:600}
+.result-sub{font-size:11px;color:#94a3b8;margin-top:4px}
+
+.cta{display:block;width:100%;margin-top:14px;padding:12px;background:linear-gradient(135deg,#2196f3,#6366f1);color:#fff;border:none;border-radius:22px;font-size:14px;font-weight:700;cursor:pointer;letter-spacing:.3px;box-shadow:0 3px 16px rgba(33,150,243,.4);text-align:center;transition:all .2s ease}
+.cta:hover{transform:scale(1.03);box-shadow:0 5px 20px rgba(33,150,243,.5)}
+</style>
+</head>
+<body>
+<div id="ad" onclick="clickThrough()">
+
+  <div class="grid"></div>
+  <div class="radar" id="r1"></div>
+  <div class="radar" id="r2"></div>
+
+  <div class="logo">
+    <div class="logo-dot">P</div>
+    <span class="logo-text">Ploop</span>
+  </div>
+
+  <div class="left">
+    <div class="question" id="question">How far is the<br>nearest <em>clean toilet</em>?</div>
+    <div class="counter-wrap" id="counterWrap">
+      <div class="counter" id="counter">200<span>m</span></div>
+      <div class="counter-label">away</div>
+    </div>
+    <div class="pin" id="pin">&#x1F4CD;</div>
+  </div>
+
+  <div class="right">
+    <div class="result-panel" id="result">
+      <div class="result-name">Sunshine Plaza Restroom</div>
+      <div class="result-meta">
+        <span class="result-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</span>
+        <span class="result-tag">Bidet</span>
+        <span class="result-tag">Wheelchair</span>
+      </div>
+      <div class="result-sub">Rated clean by 24 users</div>
+      <button class="cta" id="cta">Download Ploop</button>
+    </div>
+  </div>
+</div>
+
+<script>
+var clickTag = "https://ploop-app.com";
+function clickThrough(){if(typeof ExitApi!=="undefined"){ExitApi.exit()}else{window.open(clickTag,"_blank")}}
+
+var counterEl = document.getElementById("counter");
+
+setTimeout(function(){ document.getElementById("question").classList.add("show") }, 300);
+setTimeout(function(){
+  document.getElementById("question").classList.remove("show");
+  document.getElementById("counterWrap").classList.add("show");
+  document.getElementById("r1").classList.add("ping");
+  startCounter();
+}, 1800);
+setTimeout(function(){ document.getElementById("r2").classList.add("ping") }, 3200);
+setTimeout(function(){
+  document.getElementById("counterWrap").style.opacity = "0";
+  document.getElementById("pin").classList.add("drop");
+  setTimeout(function(){ document.getElementById("result").classList.add("show") }, 400);
+}, 5500);
+
+function startCounter() {
+  var current = 200, target = 12, step = 1, speed = 18;
+  var iv = setInterval(function() {
+    if (current <= 80 && step > 1) step = 1;
+    if (current > 80) step = Math.max(1, Math.floor((current - target) / 40));
+    current -= step;
+    if (current <= target) { current = target; clearInterval(iv); }
+    counterEl.innerHTML = current + "<span>m</span>";
+  }, speed);
+}
+</script>
+</body>
+</html>

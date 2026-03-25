@@ -31,3 +31,20 @@ services:
         value: 3000
       # Add these in Render Dashboard after first deploy (sensitive):
       # JWT_SECRET, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_PLACES_API_KEY, ADMIN_EMAILS
+
+  - type: web
+    name: ploop-website
+    runtime: static
+    region: oregon
+    plan: free
+    rootDir: website
+    buildCommand: echo "Static site — no build step"
+    staticPublishPath: .
+    headers:
+      - path: /*
+        name: Cache-Control
+        value: public, max-age=3600
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html

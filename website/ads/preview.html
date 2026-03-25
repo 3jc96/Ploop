@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Ploop — Ad Previews</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:#1a1a2e;color:#e2e8f0;padding:40px 20px;min-height:100vh}
+h1{text-align:center;font-size:22px;margin-bottom:6px}
+p.sub{text-align:center;color:#94a3b8;font-size:13px;margin-bottom:10px}
+.sizes{text-align:center;font-size:12px;color:#64748b;margin-bottom:40px}
+.sizes code{background:#1e293b;padding:2px 8px;border-radius:4px;color:#60a5fa;font-size:11px}
+.section{margin-bottom:50px}
+.section h2{text-align:center;font-size:16px;color:#94a3b8;margin-bottom:20px;font-weight:500}
+.ads{display:flex;flex-wrap:wrap;justify-content:center;gap:30px;align-items:flex-start}
+.ad-card{background:#111827;border-radius:16px;padding:16px;box-shadow:0 4px 24px rgba(0,0,0,.4)}
+.ad-card h3{font-size:12px;color:#64748b;margin-bottom:10px;text-align:center;font-weight:500}
+.ad-card iframe{border:none;border-radius:8px;display:block}
+.note{text-align:center;margin-top:50px;font-size:12px;color:#64748b;line-height:1.7;max-width:560px;margin-left:auto;margin-right:auto}
+.note code{background:#1e293b;padding:1px 6px;border-radius:3px;color:#60a5fa;font-size:11px}
+</style>
+</head>
+<body>
+<h1>Ploop Ad Creatives</h1>
+<p class="sub">Google Ads HTML5 — App Campaign Interstitials</p>
+<div class="sizes">Supported sizes: <code>320 &times; 480</code> portrait &nbsp;&bull;&nbsp; <code>480 &times; 320</code> landscape</div>
+
+<div class="section">
+  <h2>Spin the Toilet</h2>
+  <div class="ads">
+    <div class="ad-card">
+      <h3>320 &times; 480 &mdash; Portrait</h3>
+      <iframe src="spin-the-toilet-320x480.html" width="320" height="480"></iframe>
+    </div>
+    <div class="ad-card">
+      <h3>480 &times; 320 &mdash; Landscape</h3>
+      <iframe src="spin-the-toilet-480x320.html" width="480" height="320"></iframe>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h2>Distance Counter</h2>
+  <div class="ads">
+    <div class="ad-card">
+      <h3>320 &times; 480 &mdash; Portrait</h3>
+      <iframe src="distance-counter-320x480.html" width="320" height="480"></iframe>
+    </div>
+    <div class="ad-card">
+      <h3>480 &times; 320 &mdash; Landscape</h3>
+      <iframe src="distance-counter-480x320.html" width="480" height="320"></iframe>
+    </div>
+  </div>
+</div>
+
+<div class="note">
+  <strong>Upload to Google Ads:</strong><br>
+  Zip each HTML file individually (1 file per .zip) &rarr; Google Ads &rarr; App Campaign &rarr; HTML5 asset<br><br>
+  Both ads use <code>ExitApi.exit()</code> for click-through (Google Ads standard).<br>
+  Falls back to <code>window.open(clickTag)</code> for local preview.
+</div>
+</body>
+</html>

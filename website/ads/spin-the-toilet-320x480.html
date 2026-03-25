@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=320,initial-scale=1">
+<meta name="ad.size" content="width=320,height=480">
+<meta name="ad.orientation" content="portrait">
+<title>Ploop — Spin the Toilet</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body,html{width:320px;height:480px;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+#ad{position:relative;width:320px;height:480px;background:linear-gradient(160deg,#eef4ff 0%,#f5f5f5 40%,#fff 100%);cursor:pointer;overflow:hidden}
+
+.bg-circles{position:absolute;inset:0;pointer-events:none;opacity:.1}
+.bg-circles circle{fill:#2196f3}
+
+/* --- Logo --- */
+.logo{position:absolute;top:16px;left:16px;display:flex;align-items:center;gap:7px;z-index:3}
+.logo-dot{width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#2196f3,#6366f1);display:flex;align-items:center;justify-content:center;font-size:13px;color:#fff;font-weight:700}
+.logo-text{font-size:16px;font-weight:800;color:#333;letter-spacing:.3px}
+
+/* --- Slot machine --- */
+.slot-wrap{display:flex;align-items:center;justify-content:center;gap:10px;margin-top:80px;position:relative;z-index:2}
+.slot{width:80px;height:90px;background:#fff;border-radius:14px;box-shadow:0 3px 14px rgba(0,0,0,.1);overflow:hidden;position:relative}
+.slot-inner{display:flex;flex-direction:column;align-items:center;position:absolute;top:0;left:0;width:100%;transition:transform .3s cubic-bezier(.22,1,.36,1)}
+.slot-item{width:80px;height:90px;display:flex;align-items:center;justify-content:center;font-size:44px;flex-shrink:0}
+.slot.spinning .slot-inner{transition:none}
+
+/* --- Stars --- */
+.stars{display:flex;justify-content:center;gap:3px;margin-top:20px;opacity:0;transform:scale(.7);transition:all .4s ease}
+.stars.show{opacity:1;transform:scale(1)}
+.star{font-size:26px;color:#facc15;filter:drop-shadow(0 1px 3px rgba(250,204,21,.4))}
+
+/* --- Headline --- */
+.headline{text-align:center;padding:0 28px;margin-top:16px;font-size:17px;font-weight:700;color:#333;line-height:1.4;opacity:0;transform:translateY(8px);transition:all .5s ease}
+.headline.show{opacity:1;transform:translateY(0)}
+.headline em{color:#2196f3;font-style:normal}
+
+/* --- Subtext --- */
+.subtext{text-align:center;padding:0 36px;margin-top:8px;font-size:12.5px;color:#64748b;line-height:1.4;opacity:0;transform:translateY(6px);transition:all .5s ease .1s}
+.subtext.show{opacity:1;transform:translateY(0)}
+
+/* --- CTA --- */
+.cta{display:block;margin:20px auto 0;padding:14px 40px;background:linear-gradient(135deg,#2196f3,#6366f1);color:#fff;border:none;border-radius:28px;font-size:16px;font-weight:700;letter-spacing:.3px;cursor:pointer;opacity:0;transform:translateY(10px);transition:all .4s ease;box-shadow:0 4px 18px rgba(33,150,243,.35)}
+.cta.show{opacity:1;transform:translateY(0)}
+.cta:hover{transform:translateY(-2px);box-shadow:0 6px 22px rgba(33,150,243,.45)}
+
+/* --- Tap prompt --- */
+.tap{position:absolute;bottom:24px;left:0;right:0;text-align:center;font-size:12px;color:#999;letter-spacing:.6px;animation:pulse 2s ease-in-out infinite}
+.tap.hide{display:none}
+@keyframes pulse{0%,100%{opacity:.4}50%{opacity:1}}
+
+/* --- Bottom badge --- */
+.badge{position:absolute;bottom:16px;left:0;right:0;display:flex;justify-content:center;align-items:center;gap:6px;opacity:0;transition:opacity .4s ease}
+.badge.show{opacity:1}
+.badge-icon{width:20px;height:20px}
+.badge-text{font-size:10px;color:#94a3b8;letter-spacing:.3px}
+</style>
+</head>
+<body>
+<div id="ad" onclick="clickThrough()">
+
+  <svg class="bg-circles" viewBox="0 0 320 480"><circle cx="280" cy="40" r="70"/><circle cx="30" cy="440" r="50"/><circle cx="160" cy="500" r="90"/><circle cx="-20" cy="200" r="40"/></svg>
+
+  <div class="logo">
+    <div class="logo-dot">P</div>
+    <span class="logo-text">Ploop</span>
+  </div>
+
+  <div class="slot-wrap" id="slotWrap">
+    <div class="slot" id="s0"><div class="slot-inner" id="si0"></div></div>
+    <div class="slot" id="s1"><div class="slot-inner" id="si1"></div></div>
+    <div class="slot" id="s2"><div class="slot-inner" id="si2"></div></div>
+  </div>
+
+  <div class="stars" id="stars">
+    <span class="star">&#9733;</span><span class="star">&#9733;</span><span class="star">&#9733;</span><span class="star">&#9733;</span><span class="star">&#9733;</span>
+  </div>
+
+  <div class="headline" id="headline">Your next <em>clean restroom</em><br>is closer than you think</div>
+  <div class="subtext" id="subtext">Real ratings for cleanliness, smell &amp; bidet access</div>
+
+  <button class="cta" id="cta">Find it now</button>
+
+  <div class="tap" id="tap">TAP TO SPIN</div>
+
+  <div class="badge" id="badge">
+    <svg class="badge-icon" viewBox="0 0 24 24" fill="none"><path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z" fill="#94a3b8"></path></svg>
+    <span class="badge-text">Free on App Store</span>
+  </div>
+</div>
+
+<script>
+var clickTag = "https://ploop-app.com";
+function clickThrough(){if(typeof ExitApi!=="undefined"){ExitApi.exit()}else{window.open(clickTag,"_blank")}}
+
+var emojis = ["\uD83D\uDEBD","\uD83E\uDDFB","\uD83D\uDCA9","\uD83D\uDEB0","\uD83E\uDDFC","\uD83C\uDFE5","\uD83C\uDFEA","\u2728"];
+var ITEM_H = 90, SPINS = 12, STOP_EMOJI = "\uD83D\uDEBD";
+
+function buildReel(inner, count) {
+  inner.innerHTML = "";
+  for (var i = 0; i < count; i++) {
+    var d = document.createElement("div");
+    d.className = "slot-item";
+    d.textContent = (i === count - 1) ? STOP_EMOJI : emojis[Math.floor(Math.random() * emojis.length)];
+    inner.appendChild(d);
+  }
+}
+
+var slots = [
+  {el: document.getElementById("s0"), inner: document.getElementById("si0"), items: SPINS + 3},
+  {el: document.getElementById("s1"), inner: document.getElementById("si1"), items: SPINS + 6},
+  {el: document.getElementById("s2"), inner: document.getElementById("si2"), items: SPINS + 9}
+];
+
+slots.forEach(function(s){ buildReel(s.inner, s.items) });
+
+var spinning = false, spun = false;
+
+function spin() {
+  if (spinning || spun) return;
+  spinning = true;
+  spun = true;
+  document.getElementById("tap").classList.add("hide");
+
+  slots.forEach(function(s, i) {
+    s.el.classList.add("spinning");
+    var offset = 0;
+    var speed = 8 + i * 2;
+    var total = (s.items - 1) * ITEM_H;
+
+    var interval = setInterval(function() {
+      offset += speed;
+      if (offset >= total) {
+        offset = total;
+        clearInterval(interval);
+        s.inner.style.transform = "translateY(-" + offset + "px)";
+        s.el.classList.remove("spinning");
+        if (i === slots.length - 1) onAllStopped();
+        return;
+      }
+      s.inner.style.transform = "translateY(-" + offset + "px)";
+    }, 16);
+  });
+}
+
+function onAllStopped() {
+  spinning = false;
+  setTimeout(function(){ document.getElementById("stars").classList.add("show") }, 200);
+  setTimeout(function(){ document.getElementById("headline").classList.add("show") }, 500);
+  setTimeout(function(){ document.getElementById("subtext").classList.add("show") }, 700);
+  setTimeout(function(){ document.getElementById("cta").classList.add("show") }, 900);
+  setTimeout(function(){ document.getElementById("badge").classList.add("show") }, 1100);
+}
+
+document.getElementById("ad").addEventListener("click", function(e) {
+  if (!spun) { e.preventDefault(); e.stopPropagation(); spin(); }
+});
+
+setTimeout(function(){ if (!spun) spin() }, 4000);
+</script>
+</body>
+</html>
