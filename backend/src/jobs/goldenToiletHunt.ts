@@ -196,6 +196,13 @@ export async function handleGoldenCheckin(
   if (goldenRows.length === 0) return null;
   const golden = goldenRows[0];
 
+  // Is this city paused or ended?
+  const { rows: cityStatus } = await pool.query<{ is_paused: boolean; is_ended: boolean }>(
+    'SELECT is_paused, is_ended FROM golden_hunt_city_status WHERE hunt_id = $1 AND city = $2',
+    [huntId, golden.city],
+  );
+  if (cityStatus.length > 0 && (cityStatus[0].is_paused || cityStatus[0].is_ended)) return null;
+
   // Count distinct golden toilets checked in today by this device (including current)
   const { rows: countRows } = await pool.query<{ count: string }>(
     `SELECT COUNT(DISTINCT tc.toilet_id) AS count

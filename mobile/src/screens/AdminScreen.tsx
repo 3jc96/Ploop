@@ -1189,6 +1189,11 @@ export default function AdminScreen() {
                           onPress={() => setSelectedCity(c)}
                         >
                           <Text style={styles.huntCityName}>{c.city}</Text>
+                          {(c.isPaused || c.isEnded) && (
+                            <Text style={{ fontSize: 10, fontWeight: '700', color: c.isEnded ? '#ef4444' : '#f59e0b', marginBottom: 2 }}>
+                              {c.isEnded ? 'ENDED' : 'PAUSED'}
+                            </Text>
+                          )}
                           <Text style={styles.huntCityCount}>
                             {c.found}/{c.total} found
                           </Text>
@@ -1257,31 +1262,72 @@ export default function AdminScreen() {
             <Text style={styles.huntCityCount}>{selectedCity?.found}/{selectedCity?.total} found</Text>
             <ScrollView style={{ marginTop: 12, marginBottom: 12 }}>
               {selectedCity?.toilets?.map((t: any) => (
-                <View key={t.goldenToiletId} style={styles.huntToiletRow}>
+                <TouchableOpacity
+                  key={t.goldenToiletId}
+                  style={styles.huntToiletRow}
+                  onPress={() => {
+                    setSelectedCity(null);
+                    (navigation as any).navigate('ToiletDetails', { toiletId: t.toiletId });
+                  }}
+                >
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.huntToiletName}>{t.name}</Text>
+                    <Text style={[styles.huntToiletName, { textDecorationLine: 'underline' }]}>{t.name}</Text>
                     <Text style={styles.huntToiletStatus}>
                       {t.isFound ? `✓ Found ${t.foundAt ? new Date(t.foundAt).toLocaleDateString() : ''}` : '○ Not yet found'} · {t.checkinCount} check-in{t.checkinCount !== 1 ? 's' : ''}
                     </Text>
                   </View>
-                </View>
+                  <Text style={{ color: '#94a3b8', fontSize: 16 }}>›</Text>
+                </TouchableOpacity>
               ))}
             </ScrollView>
             {huntData?.hunt?.id && (
-              <TouchableOpacity
-                style={[styles.huntBtn, styles.huntBtnWarn, { marginBottom: 8 }]}
-                disabled={!!huntActionBusy}
-                onPress={() => {
-                  confirmAsync('Re-roll City', `Replace the 3 golden toilets in ${selectedCity?.city}? Existing check-ins are kept.`)
-                    .then(ok => {
-                      if (!ok) return;
-                      huntAction('reroll', () => api.hunt.admin.reroll(huntData.hunt.id, selectedCity.city))
-                        .then(() => setSelectedCity(null));
-                    });
-                }}
-              >
-                <Text style={styles.huntBtnText}>{huntActionBusy === 'reroll' ? '…' : `Re-roll ${selectedCity?.city}`}</Text>
-              </TouchableOpacity>
+              <View style={[styles.huntControls, { marginBottom: 4 }]}>
+                {!selectedCity?.isEnded && (
+                  selectedCity?.isPaused ? (
+                    <TouchableOpacity
+                      style={[styles.huntBtn, styles.huntBtnGreen]}
+                      disabled={!!huntActionBusy}
+                      onPress={() => huntAction('resumeCity', () => api.hunt.admin.resumeCity(huntData.hunt.id, selectedCity.city)).then(() => setSelectedCity(null))}
+                    >
+                      <Text style={styles.huntBtnText}>{huntActionBusy === 'resumeCity' ? '…' : `Resume ${selectedCity?.city}`}</Text>
+                    </TouchableOpacity>
+                  ) : (
+                    <TouchableOpacity
+                      style={[styles.huntBtn, styles.huntBtnWarn]}
+                      disabled={!!huntActionBusy}
+                      onPress={() => confirmAsync('Pause City', `Pause the hunt in ${selectedCity?.city}? Users cannot check in here while paused.`).then(ok => { if (ok) huntAction('pauseCity', () => api.hunt.admin.pauseCity(huntData.hunt.id, selectedCity.city)).then(() => setSelectedCity(null)); })}
+                    >
+                      <Text style={styles.huntBtnText}>{huntActionBusy === 'pauseCity' ? '…' : `Pause ${selectedCity?.city}`}</Text>
+                    </TouchableOpacity>
+                  )
+                )}
+                {!selectedCity?.isEnded && (
+                  <TouchableOpacity
+                    style={[styles.huntBtn, { backgroundColor: '#ef4444' }]}
+                    disabled={!!huntActionBusy}
+                    onPress={() => confirmAsync('End City Hunt', `End the hunt permanently in ${selectedCity?.city}? This cannot be undone.`).then(ok => { if (ok) huntAction('endCity', () => api.hunt.admin.endCity(huntData.hunt.id, selectedCity.city)).then(() => setSelectedCity(null)); })}
+                  >
+                    <Text style={styles.huntBtnText}>{huntActionBusy === 'endCity' ? '…' : `End ${selectedCity?.city}`}</Text>
+                  </TouchableOpacity>
+                )}
+                {selectedCity?.isEnded && (
+                  <Text style={{ color: '#ef4444', fontWeight: '700', fontSize: 13, paddingVertical: 9 }}>Hunt ended in this city</Text>
+                )}
+                <TouchableOpacity
+                  style={[styles.huntBtn, styles.huntBtnWarn]}
+                  disabled={!!huntActionBusy}
+                  onPress={() => {
+                    confirmAsync('Re-roll City', `Replace the 3 golden toilets in ${selectedCity?.city}? Existing check-ins are kept.`)
+                      .then(ok => {
+                        if (!ok) return;
+                        huntAction('reroll', () => api.hunt.admin.reroll(huntData.hunt.id, selectedCity.city))
+                          .then(() => setSelectedCity(null));
+                      });
+                  }}
+                >
+                  <Text style={styles.huntBtnText}>{huntActionBusy === 'reroll' ? '…' : `Re-roll ${selectedCity?.city}`}</Text>
+                </TouchableOpacity>
+              </View>
             )}
             <TouchableOpacity style={[styles.huntBtn, { backgroundColor: '#eee' }]} onPress={() => setSelectedCity(null)}>
               <Text style={[styles.huntBtnText, { color: '#333' }]}>Close</Text>

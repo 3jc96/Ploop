@@ -319,5 +319,20 @@ export async function ensureFeatureTables(): Promise<void> {
   `);
   await safe(`CREATE INDEX IF NOT EXISTS idx_golden_hunt_checkins_hunt ON golden_hunt_checkins (hunt_id, checked_in_at DESC);`);
   await safe(`CREATE INDEX IF NOT EXISTS idx_golden_hunt_checkins_toilet ON golden_hunt_checkins (golden_hunt_toilet_id);`);
+
+  // One-time city name normalization: rename Malay "Singapura" -> "Singapore"
+  await safe(`UPDATE toilets SET city = 'Singapore' WHERE city = 'Singapura'`);
+
+  // Per-city pause/end overrides for golden hunts
+  await safe(`
+    CREATE TABLE IF NOT EXISTS golden_hunt_city_status (
+      hunt_id uuid NOT NULL REFERENCES golden_hunts(id) ON DELETE CASCADE,
+      city text NOT NULL,
+      is_paused boolean NOT NULL DEFAULT false,
+      is_ended boolean NOT NULL DEFAULT false,
+      updated_at timestamptz DEFAULT now(),
+      PRIMARY KEY (hunt_id, city)
+    );
+  `);
 }
 

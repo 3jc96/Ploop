@@ -498,6 +498,21 @@ export const api = {
         const response = await httpClient.get(API_ENDPOINTS.huntAdminExport, { headers: auth, responseType: 'text' });
         return response.data as unknown as string;
       },
+      pauseCity: async (huntId: string, city: string): Promise<any> => {
+        const auth = await api.getAuthHeaders();
+        const response = await httpClient.post(API_ENDPOINTS.huntAdminCityPause(huntId, city), {}, { headers: auth });
+        return response.data;
+      },
+      resumeCity: async (huntId: string, city: string): Promise<any> => {
+        const auth = await api.getAuthHeaders();
+        const response = await httpClient.post(API_ENDPOINTS.huntAdminCityResume(huntId, city), {}, { headers: auth });
+        return response.data;
+      },
+      endCity: async (huntId: string, city: string): Promise<any> => {
+        const auth = await api.getAuthHeaders();
+        const response = await httpClient.post(API_ENDPOINTS.huntAdminCityEnd(huntId, city), {}, { headers: auth });
+        return response.data;
+      },
     },
   },
 

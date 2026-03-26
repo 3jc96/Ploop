@@ -69,15 +69,26 @@ router.get('/dashboard', async (_req: Request, res: Response) => {
       [hunt.id],
     );
 
+    // City-level pause/end overrides
+    const { rows: cityStatusRows } = await pool.query<{ city: string; is_paused: boolean; is_ended: boolean }>(
+      'SELECT city, is_paused, is_ended FROM golden_hunt_city_status WHERE hunt_id = $1',
+      [hunt.id],
+    );
+    const cityStatusMap: Record<string, { isPaused: boolean; isEnded: boolean }> = {};
+    for (const s of cityStatusRows) {
+      cityStatusMap[s.city] = { isPaused: s.is_paused, isEnded: s.is_ended };
+    }
+
     // Group by city
     const cityMap: Record<string, {
-      city: string; total: number; found: number;
+      city: string; total: number; found: number; isPaused: boolean; isEnded: boolean;
       toilets: Array<{ goldenToiletId: string; toiletId: string; name: string; isFound: boolean; foundAt: string | null; checkinCount: number }>;
     }> = {};
 
     for (const row of toiletRows) {
       if (!cityMap[row.city]) {
-        cityMap[row.city] = { city: row.city, total: 0, found: 0, toilets: [] };
+        const cs = cityStatusMap[row.city] ?? { isPaused: false, isEnded: false };
+        cityMap[row.city] = { city: row.city, total: 0, found: 0, isPaused: cs.isPaused, isEnded: cs.isEnded, toilets: [] };
       }
       cityMap[row.city].total++;
       if (row.is_found) cityMap[row.city].found++;
@@ -245,6 +256,47 @@ router.post(
     }
   },
 );
+
+// ── City-level pause / resume / end ──────────────────────────────────────────
+
+const cityActionValidator = [param('huntId').isUUID(), param('city').isString().trim().notEmpty()];
+
+async function setCityStatus(
+  huntId: string, city: string,
+  isPaused: boolean, isEnded: boolean,
+  res: Response,
+) {
+  try {
+    await pool.query(
+      `INSERT INTO golden_hunt_city_status (hunt_id, city, is_paused, is_ended, updated_at)
+       VALUES ($1, $2, $3, $4, now())
+       ON CONFLICT (hunt_id, city) DO UPDATE
+         SET is_paused = EXCLUDED.is_paused,
+             is_ended  = EXCLUDED.is_ended,
+             updated_at = now()`,
+      [huntId, city, isPaused, isEnded],
+    );
+    res.json({ ok: true, city, isPaused, isEnded });
+  } catch (e) {
+    console.error('[HuntAdmin] city status error:', e);
+    res.status(500).json({ error: 'Failed to update city status' });
+  }
+}
+
+router.post('/:huntId/cities/:city/pause', cityActionValidator, async (req: Request, res: Response) => {
+  if (!validationResult(req).isEmpty()) return res.status(400).json({ error: 'Invalid params' });
+  await setCityStatus(req.params.huntId, decodeURIComponent(req.params.city), true, false, res);
+});
+
+router.post('/:huntId/cities/:city/resume', cityActionValidator, async (req: Request, res: Response) => {
+  if (!validationResult(req).isEmpty()) return res.status(400).json({ error: 'Invalid params' });
+  await setCityStatus(req.params.huntId, decodeURIComponent(req.params.city), false, false, res);
+});
+
+router.post('/:huntId/cities/:city/end', cityActionValidator, async (req: Request, res: Response) => {
+  if (!validationResult(req).isEmpty()) return res.status(400).json({ error: 'Invalid params' });
+  await setCityStatus(req.params.huntId, decodeURIComponent(req.params.city), false, true, res);
+});
 
 // ── Manual notification ──────────────────────────────────────────────────────
 

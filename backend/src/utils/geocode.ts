@@ -34,7 +34,7 @@ export async function reverseGeocode(latitude: number, longitude: number): Promi
       if (c.types?.includes('country')) country = c.long_name;
     }
     return {
-      city: city || null,
+      city: normalizeCityName(city) || null,
       country: country || null,
       formattedAddress: result.formatted_address || null,
     };
@@ -44,9 +44,20 @@ export async function reverseGeocode(latitude: number, longitude: number): Promi
   }
 }
 
+/** Normalize city names returned by Google (e.g. Malay names for Singapore) */
+const CITY_NAME_ALIASES: Record<string, string> = {
+  'singapura': 'Singapore',
+};
+
+function normalizeCityName(city: string | null): string | null {
+  if (!city) return null;
+  return CITY_NAME_ALIASES[city.toLowerCase()] ?? city;
+}
+
 /** City name -> IANA timezone for "midnight local" rotation */
 const CITY_TIMEZONE: Record<string, string> = {
   singapore: 'Asia/Singapore',
+  singapura: 'Asia/Singapore',
   london: 'Europe/London',
   'new york': 'America/New_York',
   'los angeles': 'America/Los_Angeles',
