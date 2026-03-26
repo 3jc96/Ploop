@@ -430,6 +430,77 @@ export const api = {
     return response.data;
   },
 
+  // Golden Toilet Hunt
+  hunt: {
+    getStatus: async (): Promise<{
+      active: boolean;
+      daysUntilStart: number | null;
+      goldenToiletsRemaining: Record<string, number> | null;
+      startsAt: string | null;
+      endsAt: string | null;
+    }> => {
+      const response = await httpClient.get(API_ENDPOINTS.huntStatus);
+      return response.data;
+    },
+    registerPushToken: async (pushToken: string): Promise<{ ok: boolean }> => {
+      const cfg = await api.withDeviceHeaders();
+      const auth = await api.getAuthHeaders();
+      const response = await httpClient.post(
+        API_ENDPOINTS.huntRegisterPushToken,
+        { pushToken },
+        { headers: { ...cfg.headers, ...auth } },
+      );
+      return response.data;
+    },
+    admin: {
+      getDashboard: async (): Promise<any> => {
+        const auth = await api.getAuthHeaders();
+        const response = await httpClient.get(API_ENDPOINTS.huntAdminDashboard, { headers: auth });
+        return response.data;
+      },
+      pause: async (huntId: string): Promise<any> => {
+        const auth = await api.getAuthHeaders();
+        const response = await httpClient.post(API_ENDPOINTS.huntAdminPause(huntId), {}, { headers: auth });
+        return response.data;
+      },
+      resume: async (huntId: string): Promise<any> => {
+        const auth = await api.getAuthHeaders();
+        const response = await httpClient.post(API_ENDPOINTS.huntAdminResume(huntId), {}, { headers: auth });
+        return response.data;
+      },
+      reroll: async (huntId: string, city: string): Promise<any> => {
+        const auth = await api.getAuthHeaders();
+        const response = await httpClient.post(API_ENDPOINTS.huntAdminReroll(huntId, city), {}, { headers: auth });
+        return response.data;
+      },
+      start: async (durationDays = 21): Promise<any> => {
+        const auth = await api.getAuthHeaders();
+        const response = await httpClient.post(API_ENDPOINTS.huntAdminStart, { durationDays }, { headers: auth });
+        return response.data;
+      },
+      notify: async (): Promise<any> => {
+        const auth = await api.getAuthHeaders();
+        const response = await httpClient.post(API_ENDPOINTS.huntAdminNotify, {}, { headers: auth });
+        return response.data;
+      },
+      getCheckins: async (params?: { offset?: number; limit?: number; huntId?: string }): Promise<{ checkins: any[]; total: number }> => {
+        const auth = await api.getAuthHeaders();
+        const response = await httpClient.get(API_ENDPOINTS.huntAdminCheckins, { headers: auth, params: params || {} });
+        return response.data;
+      },
+      markVoucher: async (checkinId: string, sent: boolean): Promise<any> => {
+        const auth = await api.getAuthHeaders();
+        const response = await httpClient.patch(API_ENDPOINTS.huntAdminVoucher(checkinId), { sent }, { headers: auth });
+        return response.data;
+      },
+      exportCsv: async (): Promise<string> => {
+        const auth = await api.getAuthHeaders();
+        const response = await httpClient.get(API_ENDPOINTS.huntAdminExport, { headers: auth, responseType: 'text' });
+        return response.data as unknown as string;
+      },
+    },
+  },
+
   // Submit a quick report (closed/busy/etc)
   submitReport: async (
     toiletId: string,

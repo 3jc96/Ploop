@@ -187,6 +187,19 @@ export const API_ENDPOINTS = {
   // Suggestions (40 chars, sent to admin)
   suggestions: `${API_BASE_URL}/api/suggestions`,
   adminRegisterPushToken: `${API_BASE_URL}/api/admin/register-push-token`,
+  // Golden Toilet Hunt
+  huntStatus: `${API_BASE_URL}/api/hunt/status`,
+  huntRegisterPushToken: `${API_BASE_URL}/api/hunt/register-push-token`,
+  // Hunt admin
+  huntAdminDashboard: `${API_BASE_URL}/api/admin/hunt/dashboard`,
+  huntAdminPause: (huntId: string) => `${API_BASE_URL}/api/admin/hunt/${huntId}/pause`,
+  huntAdminResume: (huntId: string) => `${API_BASE_URL}/api/admin/hunt/${huntId}/resume`,
+  huntAdminReroll: (huntId: string, city: string) => `${API_BASE_URL}/api/admin/hunt/${huntId}/reroll/${encodeURIComponent(city)}`,
+  huntAdminStart: `${API_BASE_URL}/api/admin/hunt/start`,
+  huntAdminNotify: `${API_BASE_URL}/api/admin/hunt/notify`,
+  huntAdminCheckins: `${API_BASE_URL}/api/admin/hunt/checkins`,
+  huntAdminVoucher: (checkinId: string) => `${API_BASE_URL}/api/admin/hunt/checkins/${checkinId}/voucher`,
+  huntAdminExport: `${API_BASE_URL}/api/admin/hunt/checkins/export`,
   adminDiagnostics: `${API_BASE_URL}/api/admin/diagnostics`,
   adminCrashReports: `${API_BASE_URL}/api/admin/crash-reports`,
   diagnostics: `${API_BASE_URL}/api/diagnostics`,

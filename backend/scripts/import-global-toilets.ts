@@ -221,57 +221,81 @@ async function fetchRefugeToilets(cfg: CityConfig): Promise<RawToilet[]> {
 }
 
 async function fetchToiletMapUK(cfg: CityConfig): Promise<RawToilet[]> {
-  console.log(`  [ToiletMapUK] Downloading dataset…`);
+  // The Toilet Map UK API is GraphQL at https://www.toiletmap.org.uk/api
+  // REST endpoints /api/toilets and /api/toilets.json no longer exist.
+  const GQL_ENDPOINT = 'https://www.toiletmap.org.uk/api';
+  const PAGE_SIZE = 100; // API enforces max 100 per page
   const toilets: RawToilet[] = [];
+  let page = 1;
+  let totalPages = 1;
 
-  try {
-    const res = await axios.get('https://www.toiletmap.org.uk/api/toilets', {
-      timeout: 60_000,
-    });
-    const data: any[] = Array.isArray(res.data) ? res.data : [];
+  // Note: openingTimes is a custom scalar that fails to resolve server-side — excluded intentionally.
+  const query = 'query GetLoos($page: Int!, $limit: Int!) { loos(filters: { active: true }, pagination: { page: $page, limit: $limit }) { ... on LooSearchResponse { total pages page loos { id name location { lat lng } accessible noPayment babyChange urinalOnly active } } } }';
 
-    for (const t of data) {
-      const loc = t.location || t.geometry;
-      let lat: number | undefined;
-      let lng: number | undefined;
+  console.log(`  [ToiletMapUK] Querying GraphQL for ${cfg.name}…`);
 
-      if (loc?.coordinates) {
-        // GeoJSON: [lng, lat]
-        lng = loc.coordinates[0];
-        lat = loc.coordinates[1];
-      } else if (t.lat != null && (t.lng != null || t.lon != null)) {
-        lat = parseFloat(t.lat);
-        lng = parseFloat(t.lng ?? t.lon);
+  while (page <= totalPages) {
+    try {
+      const res = await axios.post(
+        GQL_ENDPOINT,
+        { query, variables: { page, limit: PAGE_SIZE } },
+        { headers: { 'Content-Type': 'application/json' }, timeout: 60_000 },
+      );
+      const resp = res.data?.data?.loos;
+      if (!resp) {
+        console.warn(`  [ToiletMapUK] Unexpected response on page ${page}: ${JSON.stringify(res.data).slice(0, 200)}`);
+        break;
       }
 
-      if (lat == null || lng == null || isNaN(lat) || isNaN(lng)) continue;
-      if (lat < cfg.bbox[0] || lat > cfg.bbox[2] || lng < cfg.bbox[1] || lng > cfg.bbox[3]) continue;
+      totalPages = resp.pages ?? 1;
 
-      toilets.push({
-        lat,
-        lng,
-        name: t.name || '',
-        wheelchair: t.accessible === true || t.wheelchair === true ? true : null,
-        fee: null,
-        hasBidet: null,
-        openingHours: t.opening_hours || t.openingHours || null,
-        source: 'toiletmap_uk',
-        city: cfg.name,
-      });
-    }
-  } catch (e: any) {
-    console.warn(`  [ToiletMapUK] Download failed: ${e?.message}`);
-    // Fall back: try the CSV download URL
-    try {
-      const res = await axios.get('https://www.toiletmap.org.uk/api/toilets.json', { timeout: 60_000 });
-      // Same parsing logic — skip for brevity if first URL worked
-      console.log(`  [ToiletMapUK] Fallback returned ${(res.data || []).length} items`);
-    } catch {
-      console.warn('  [ToiletMapUK] Both endpoints failed, skipping.');
+      for (const t of resp.loos ?? []) {
+        // Data cleaning — skip urinal-only entries (not full sit-down toilets)
+        if (t.urinalOnly === true) continue;
+        // Skip inactive entries (active filter should catch this, but belt-and-braces)
+        if (t.active === false) continue;
+
+        const lat = t.location?.lat;
+        const lng = t.location?.lng;
+        if (lat == null || lng == null || isNaN(lat) || isNaN(lng)) continue;
+
+        // Filter to city bbox
+        if (lat < cfg.bbox[0] || lat > cfg.bbox[2] || lng < cfg.bbox[1] || lng > cfg.bbox[3]) continue;
+
+        // noPayment: true → free (fee=false), false → paid (fee=true), null → unknown (fee=null)
+        const fee = t.noPayment === true ? false : t.noPayment === false ? true : null;
+
+        // accessible: treat null as unknown (not false)
+        const wheelchair = t.accessible === true ? true : t.accessible === false ? false : null;
+
+        // Sanitise name — strip generic unhelpful names
+        let name = (t.name || '').trim();
+        const genericNames = /^(public toilet|toilets?|wc|restroom|lavatory)$/i;
+        if (genericNames.test(name)) name = '';
+
+        toilets.push({
+          lat,
+          lng,
+          name,
+          wheelchair,
+          fee,
+          hasBidet: null, // ToiletMapUK doesn't track bidets
+          openingHours: null, // openingTimes scalar not available via API
+          source: 'toiletmap_uk',
+          city: cfg.name,
+        });
+      }
+
+      console.log(`  [ToiletMapUK] Page ${page}/${totalPages} — ${toilets.length} in-bbox so far`);
+      page++;
+      if (page <= totalPages) await sleep(300);
+    } catch (e: any) {
+      console.warn(`  [ToiletMapUK] Page ${page} failed: ${e?.message}`);
+      break;
     }
   }
 
-  console.log(`  [ToiletMapUK] ${cfg.name} (London bbox filter): ${toilets.length} toilets`);
+  console.log(`  [ToiletMapUK] ${cfg.name}: ${toilets.length} toilets`);
   return toilets;
 }
 

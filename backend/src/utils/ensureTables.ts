@@ -251,5 +251,73 @@ export async function ensureFeatureTables(): Promise<void> {
     );
   `);
   await safe(`CREATE INDEX IF NOT EXISTS idx_crash_reports_created ON crash_reports (created_at DESC);`);
+
+  // Golden toilet hunt: monthly treasure hunt
+  await safe(`
+    CREATE TABLE IF NOT EXISTS golden_hunts (
+      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      month_key varchar(7) NOT NULL UNIQUE,
+      starts_at timestamptz NOT NULL,
+      ends_at timestamptz NOT NULL,
+      notify_at timestamptz NOT NULL,
+      notified_at timestamptz,
+      created_at timestamptz NOT NULL DEFAULT now()
+    );
+  `);
+  await safe(`CREATE INDEX IF NOT EXISTS idx_golden_hunts_starts ON golden_hunts (starts_at);`);
+
+  await safe(`
+    CREATE TABLE IF NOT EXISTS golden_hunt_toilets (
+      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      hunt_id uuid NOT NULL REFERENCES golden_hunts(id),
+      toilet_id uuid NOT NULL REFERENCES toilets(id),
+      city text NOT NULL,
+      is_found boolean NOT NULL DEFAULT false,
+      found_at timestamptz,
+      UNIQUE(hunt_id, toilet_id)
+    );
+  `);
+  await safe(`CREATE INDEX IF NOT EXISTS idx_golden_hunt_toilets_hunt ON golden_hunt_toilets (hunt_id);`);
+  await safe(`CREATE INDEX IF NOT EXISTS idx_golden_hunt_toilets_toilet ON golden_hunt_toilets (toilet_id);`);
+
+  // User push tokens: for hunt notifications to all users (not just admins)
+  await safe(`
+    CREATE TABLE IF NOT EXISTS user_push_tokens (
+      device_id text PRIMARY KEY,
+      user_id uuid REFERENCES users(id) ON DELETE SET NULL,
+      push_token text NOT NULL,
+      updated_at timestamptz NOT NULL DEFAULT now()
+    );
+  `);
+  await safe(`CREATE INDEX IF NOT EXISTS idx_user_push_tokens_user ON user_push_tokens (user_id) WHERE user_id IS NOT NULL;`);
+
+  // Pause support for golden hunts
+  await safe(`
+    DO $$
+    BEGIN
+      IF to_regclass('public.golden_hunts') IS NOT NULL THEN
+        ALTER TABLE golden_hunts ADD COLUMN IF NOT EXISTS is_paused boolean NOT NULL DEFAULT false;
+      END IF;
+    END $$;
+  `);
+
+  // Eligible golden check-ins: admin tracks + voucher workflow
+  await safe(`
+    CREATE TABLE IF NOT EXISTS golden_hunt_checkins (
+      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      hunt_id uuid NOT NULL REFERENCES golden_hunts(id),
+      golden_hunt_toilet_id uuid NOT NULL REFERENCES golden_hunt_toilets(id),
+      toilet_id uuid NOT NULL REFERENCES toilets(id),
+      user_id uuid REFERENCES users(id) ON DELETE SET NULL,
+      device_id text NOT NULL,
+      user_name text,
+      user_email text,
+      checked_in_at timestamptz NOT NULL DEFAULT now(),
+      voucher_sent boolean NOT NULL DEFAULT false,
+      voucher_sent_at timestamptz
+    );
+  `);
+  await safe(`CREATE INDEX IF NOT EXISTS idx_golden_hunt_checkins_hunt ON golden_hunt_checkins (hunt_id, checked_in_at DESC);`);
+  await safe(`CREATE INDEX IF NOT EXISTS idx_golden_hunt_checkins_toilet ON golden_hunt_checkins (golden_hunt_toilet_id);`);
 }
 

@@ -16,6 +16,8 @@ import authRouter from './routes/auth';
 import adminRouter from './routes/admin';
 import poopGameRouter from './routes/poopGame';
 import suggestionsRouter from './routes/suggestions';
+import huntRouter from './routes/hunt';
+import huntAdminRouter from './routes/huntAdmin';
 import diagnosticsRouter from './routes/diagnostics';
 import internalJobsRouter from './routes/internalJobs';
 import { optionalAuth } from './middleware/auth';
@@ -24,6 +26,7 @@ import { checkDatabase } from './utils/checkDatabase';
 import { validateEnv } from './config/validateEnv';
 import pool from './config/database';
 import { scheduleMonthlyPoopGameTop3Report } from './jobs/monthlyPoopGameTop3';
+import { scheduleGoldenToiletHunt } from './jobs/goldenToiletHunt';
 
 dotenv.config();
 validateEnv();
@@ -177,6 +180,8 @@ app.use('/api/hints', hintsRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/poop-game', poopGameRouter);
 app.use('/api/suggestions', suggestionsRouter);
+app.use('/api/hunt', huntRouter);
+app.use('/api/admin/hunt', huntAdminRouter);
 app.use('/api/internal', internalJobsRouter);
 app.use('/api', diagnosticsRouter);
 
@@ -230,6 +235,7 @@ async function start(): Promise<void> {
     console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
     console.log(`(Listening on all interfaces so your phone can connect when on the same Wi‑Fi)`);
     scheduleMonthlyPoopGameTop3Report();
+    scheduleGoldenToiletHunt();
     scheduleKeepAlive(PORT);
   });
 

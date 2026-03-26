@@ -458,7 +458,7 @@ router.get(
   }
 );
 
-// Check in at a toilet (for analytics by time of day; one per device per toilet per day)
+// Check in at a toilet (one per device per toilet per day; golden hunt logic applied when active)
 router.post(
   '/:id/checkin',
   [param('id').isUUID()],
@@ -485,6 +485,23 @@ router.post(
         `INSERT INTO toilet_checkins (id, toilet_id, device_id, user_id) VALUES ($1, $2, $3, $4)`,
         [id, toiletId, deviceId, userId]
       );
+
+      // Golden toilet hunt: check if this toilet is part of an active hunt
+      const { handleGoldenCheckin } = await import('../jobs/goldenToiletHunt');
+      const golden = await handleGoldenCheckin(toiletId, deviceId, userId).catch(() => null);
+
+      if (golden) {
+        return res.status(201).json({
+          ok: true,
+          checked_in: true,
+          message: golden.eligible
+            ? 'Golden toilet found! You are eligible for a $10 voucher!'
+            : 'Golden toilet! Daily limit of 2 reached — check in tomorrow to qualify.',
+          golden: true,
+          golden_eligible: golden.eligible,
+        });
+      }
+
       res.status(201).json({ ok: true, checked_in: true, message: 'Checked in' });
     } catch (e: any) {
       if (e?.code === '23505') {

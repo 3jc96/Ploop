@@ -37,7 +37,7 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CHART_HEIGHT = 160;
 const BAR_GAP = 4;
 
-type Tab = 'overview' | 'moderation' | 'users' | 'diagnostics';
+type Tab = 'overview' | 'moderation' | 'users' | 'diagnostics' | 'hunt';
 type GroupBy = 'day' | 'week' | 'month';
 type RangePreset = '7d' | '30d' | '90d';
 
@@ -168,6 +168,16 @@ export default function AdminScreen() {
   const [usersSearchInput, setUsersSearchInput] = useState('');
   const [exportingCsv, setExportingCsv] = useState(false);
   const USERS_PAGE_SIZE = 50;
+
+  // Hunt tab
+  const [huntData, setHuntData] = useState<any>(null);
+  const [huntCheckins, setHuntCheckins] = useState<any[]>([]);
+  const [huntCheckinsTotal, setHuntCheckinsTotal] = useState(0);
+  const [huntLoading, setHuntLoading] = useState(false);
+  const [huntActionBusy, setHuntActionBusy] = useState<string | null>(null);
+  const [selectedCity, setSelectedCity] = useState<any | null>(null);
+  const [exportingHunt, setExportingHunt] = useState(false);
+  const [huntDuration, setHuntDuration] = useState('21');
 
   // Admin lock: PIN + Face ID / Touch ID
   const [pinStatus, setPinStatus] = useState<'loading' | 'none' | 'set'>('loading');
@@ -314,6 +324,50 @@ export default function AdminScreen() {
     }
   }, [usersSearch]);
 
+  const loadHuntDashboard = useCallback(async () => {
+    setHuntLoading(true);
+    try {
+      const [dash, checkinRes] = await Promise.all([
+        api.hunt.admin.getDashboard(),
+        api.hunt.admin.getCheckins({ limit: 100 }),
+      ]);
+      setHuntData(dash);
+      setHuntCheckins(checkinRes.checkins);
+      setHuntCheckinsTotal(checkinRes.total);
+    } catch (e: any) {
+      showAlert('Hunt error', getErrorMessage(e));
+    } finally {
+      setHuntLoading(false);
+    }
+  }, []);
+
+  const huntAction = useCallback(async (label: string, fn: () => Promise<any>) => {
+    setHuntActionBusy(label);
+    try {
+      await fn();
+      await loadHuntDashboard();
+    } catch (e: any) {
+      Alert.alert('Error', getErrorMessage(e));
+    } finally {
+      setHuntActionBusy(null);
+    }
+  }, [loadHuntDashboard]);
+
+  const exportHuntCsv = useCallback(async () => {
+    setExportingHunt(true);
+    try {
+      const csv = await api.hunt.admin.exportCsv();
+      const FS = FileSystem as any;
+      const path = `${FS.cacheDirectory}ploop-golden-hunt.csv`;
+      await FS.writeAsStringAsync(path, csv, { encoding: 'utf8' });
+      await Sharing.shareAsync(path, { mimeType: 'text/csv', dialogTitle: 'Export Golden Hunt Check-ins' });
+    } catch (e: any) {
+      Alert.alert('Export failed', getErrorMessage(e));
+    } finally {
+      setExportingHunt(false);
+    }
+  }, []);
+
   const refresh = useCallback(async () => {
     setRefreshing(true);
     const tasks = [loadDashboard(), loadReviews()];
@@ -323,9 +377,12 @@ export default function AdminScreen() {
     if (tab === 'users') {
       tasks.push(loadUsers());
     }
+    if (tab === 'hunt') {
+      tasks.push(loadHuntDashboard());
+    }
     await Promise.all(tasks);
     setRefreshing(false);
-  }, [loadDashboard, loadReviews, loadDiagnostics, loadCrashReports, loadUsers, tab]);
+  }, [loadDashboard, loadReviews, loadDiagnostics, loadCrashReports, loadUsers, loadHuntDashboard, tab]);
 
   useEffect(() => {
     if (!isAdmin) return;
@@ -350,6 +407,13 @@ export default function AdminScreen() {
     setUsersOffset(0);
     loadUsers();
   }, [isAdmin, tab, usersSearch]);
+
+  useEffect(() => {
+    if (!isAdmin || tab !== 'hunt') return;
+    loadHuntDashboard();
+    const interval = setInterval(loadHuntDashboard, 30_000);
+    return () => clearInterval(interval);
+  }, [isAdmin, tab, loadHuntDashboard]);
 
   // Register push token for suggestion notifications (native only)
   useEffect(() => {
@@ -604,6 +668,12 @@ export default function AdminScreen() {
           onPress={() => setTab('diagnostics')}
         >
           <Text style={[styles.tabText, tab === 'diagnostics' && styles.tabTextActive]}>Diagnostics</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tab, tab === 'hunt' && styles.tabActive]}
+          onPress={() => setTab('hunt')}
+        >
+          <Text style={[styles.tabText, tab === 'hunt' && styles.tabTextActive]}>🚽 Hunt</Text>
         </TouchableOpacity>
       </ScrollView>
 
@@ -1019,7 +1089,206 @@ export default function AdminScreen() {
             )}
           </>
         )}
+
+        {tab === 'hunt' && (
+          <>
+            {huntLoading && !huntData ? (
+              <ActivityIndicator style={{ marginTop: 40 }} color="#6366f1" />
+            ) : (
+              <>
+                {/* ── Status banner ── */}
+                <View style={styles.huntBanner}>
+                  {huntData?.hunt ? (
+                    <>
+                      <View style={styles.huntBannerRow}>
+                        <View style={[
+                          styles.huntStatusBadge,
+                          huntData.hunt.active ? styles.huntBadgeActive
+                            : huntData.hunt.isPaused ? styles.huntBadgePaused
+                            : styles.huntBadgeInactive,
+                        ]}>
+                          <Text style={styles.huntStatusBadgeText}>
+                            {huntData.hunt.active ? 'ACTIVE' : huntData.hunt.isPaused ? 'PAUSED' : 'ENDED'}
+                          </Text>
+                        </View>
+                        <Text style={styles.huntBannerMonth}>{huntData.hunt.monthKey}</Text>
+                        {huntLoading && <ActivityIndicator size="small" color="#6366f1" style={{ marginLeft: 8 }} />}
+                      </View>
+                      <Text style={styles.huntBannerDates}>
+                        {new Date(huntData.hunt.startsAt).toLocaleDateString()} – {new Date(huntData.hunt.endsAt).toLocaleDateString()}
+                      </Text>
+                      <Text style={styles.huntBannerProgress}>
+                        {huntData.totalFound}/{huntData.totalToilets} toilets found across {huntData.cities?.length ?? 0} cities
+                      </Text>
+                    </>
+                  ) : (
+                    <Text style={styles.huntBannerDates}>
+                      No hunt yet.{huntData?.nextHuntAt ? ` Next: ${new Date(huntData.nextHuntAt).toLocaleDateString()}` : ''}
+                    </Text>
+                  )}
+                </View>
+
+                {/* ── Controls ── */}
+                <View style={styles.huntControls}>
+                  {huntData?.hunt?.active && (
+                    <TouchableOpacity
+                      style={[styles.huntBtn, styles.huntBtnWarn]}
+                      disabled={!!huntActionBusy}
+                      onPress={() => confirmAsync('Pause Hunt', 'Pause the hunt? Users cannot check in while paused.').then(ok => { if (ok) huntAction('pause', () => api.hunt.admin.pause(huntData.hunt.id)); })}
+                    >
+                      <Text style={styles.huntBtnText}>{huntActionBusy === 'pause' ? '…' : 'Pause'}</Text>
+                    </TouchableOpacity>
+                  )}
+                  {huntData?.hunt?.isPaused && (
+                    <TouchableOpacity
+                      style={[styles.huntBtn, styles.huntBtnGreen]}
+                      disabled={!!huntActionBusy}
+                      onPress={() => huntAction('resume', () => api.hunt.admin.resume(huntData.hunt.id))}
+                    >
+                      <Text style={styles.huntBtnText}>{huntActionBusy === 'resume' ? '…' : 'Resume'}</Text>
+                    </TouchableOpacity>
+                  )}
+                  <TouchableOpacity
+                    style={[styles.huntBtn, styles.huntBtnPrimary]}
+                    disabled={!!huntActionBusy}
+                    onPress={() => confirmAsync('Send Notification', 'Send the 1-week hunt notification to all users now?').then(ok => { if (ok) huntAction('notify', () => api.hunt.admin.notify()); })}
+                  >
+                    <Text style={styles.huntBtnText}>{huntActionBusy === 'notify' ? '…' : 'Notify Users'}</Text>
+                  </TouchableOpacity>
+                  {!huntData?.hunt?.active && !huntData?.hunt?.isPaused && (
+                    <View style={styles.huntStartRow}>
+                      <TextInput
+                        style={styles.huntDurationInput}
+                        value={huntDuration}
+                        onChangeText={setHuntDuration}
+                        keyboardType="numeric"
+                        placeholder="Days"
+                        maxLength={2}
+                      />
+                      <TouchableOpacity
+                        style={[styles.huntBtn, styles.huntBtnGold]}
+                        disabled={!!huntActionBusy}
+                        onPress={() => confirmAsync('Start Hunt Now', `Start a ${parseInt(huntDuration, 10) || 21}-day hunt immediately?`).then(ok => { if (ok) huntAction('start', () => api.hunt.admin.start(parseInt(huntDuration, 10) || 21)); })}
+                      >
+                        <Text style={styles.huntBtnText}>{huntActionBusy === 'start' ? '…' : 'Start Hunt Now'}</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                </View>
+
+                {/* ── City progress ── */}
+                {(huntData?.cities?.length ?? 0) > 0 && (
+                  <>
+                    <Text style={styles.sectionTitle}>City Progress</Text>
+                    <Text style={styles.hintText}>Tap a city to view golden toilets and re-roll.</Text>
+                    <View style={styles.huntCityGrid}>
+                      {huntData.cities.map((c: any) => (
+                        <TouchableOpacity
+                          key={c.city}
+                          style={styles.huntCityCard}
+                          onPress={() => setSelectedCity(c)}
+                        >
+                          <Text style={styles.huntCityName}>{c.city}</Text>
+                          <Text style={styles.huntCityCount}>
+                            {c.found}/{c.total} found
+                          </Text>
+                          <View style={styles.huntProgressBar}>
+                            <View style={[styles.huntProgressFill, { width: `${(c.found / Math.max(c.total, 1)) * 100}%` as any }]} />
+                          </View>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </>
+                )}
+
+                {/* ── Check-ins ── */}
+                <View style={styles.huntCheckinHeader}>
+                  <Text style={styles.sectionTitle}>Check-ins ({huntCheckinsTotal})</Text>
+                  <TouchableOpacity
+                    style={[styles.huntBtn, styles.huntBtnPrimary, { marginBottom: 0 }]}
+                    disabled={exportingHunt}
+                    onPress={exportHuntCsv}
+                  >
+                    <Text style={styles.huntBtnText}>{exportingHunt ? 'Exporting…' : 'Export CSV'}</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {huntCheckins.length === 0 ? (
+                  <Text style={styles.empty}>No check-ins yet.</Text>
+                ) : (
+                  <View style={styles.huntCheckinList}>
+                    {huntCheckins.map((ci: any) => (
+                      <View key={ci.id} style={styles.huntCheckinRow}>
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.huntCheckinName}>{ci.user_name || '(anonymous)'}</Text>
+                          <Text style={styles.huntCheckinEmail}>{ci.user_email || ci.device_id?.slice(0, 12) + '…'}</Text>
+                          <Text style={styles.huntCheckinMeta}>{ci.city} · {ci.toilet_name}</Text>
+                          <Text style={styles.huntCheckinDate}>{new Date(ci.checked_in_at).toLocaleString()}</Text>
+                        </View>
+                        <TouchableOpacity
+                          style={[styles.huntVoucherBtn, ci.voucher_sent && styles.huntVoucherBtnSent]}
+                          onPress={async () => {
+                            try {
+                              await api.hunt.admin.markVoucher(ci.id, !ci.voucher_sent);
+                              setHuntCheckins(prev => prev.map(x => x.id === ci.id ? { ...x, voucher_sent: !ci.voucher_sent } : x));
+                            } catch (e: any) {
+                              Alert.alert('Error', getErrorMessage(e));
+                            }
+                          }}
+                        >
+                          <Text style={styles.huntVoucherBtnText}>{ci.voucher_sent ? '✓ Sent' : 'Voucher'}</Text>
+                        </TouchableOpacity>
+                      </View>
+                    ))}
+                  </View>
+                )}
+              </>
+            )}
+          </>
+        )}
       </ScrollView>
+
+      {/* ── City detail modal ── */}
+      <Modal visible={!!selectedCity} transparent animationType="slide" onRequestClose={() => setSelectedCity(null)}>
+        <View style={styles.modalBackdrop}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setSelectedCity(null)} />
+          <View style={[styles.modalContent, { maxHeight: '80%' }]} onStartShouldSetResponder={() => true}>
+            <Text style={styles.modalTitle}>{selectedCity?.city}</Text>
+            <Text style={styles.huntCityCount}>{selectedCity?.found}/{selectedCity?.total} found</Text>
+            <ScrollView style={{ marginTop: 12, marginBottom: 12 }}>
+              {selectedCity?.toilets?.map((t: any) => (
+                <View key={t.goldenToiletId} style={styles.huntToiletRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.huntToiletName}>{t.name}</Text>
+                    <Text style={styles.huntToiletStatus}>
+                      {t.isFound ? `✓ Found ${t.foundAt ? new Date(t.foundAt).toLocaleDateString() : ''}` : '○ Not yet found'} · {t.checkinCount} check-in{t.checkinCount !== 1 ? 's' : ''}
+                    </Text>
+                  </View>
+                </View>
+              ))}
+            </ScrollView>
+            {huntData?.hunt?.id && (
+              <TouchableOpacity
+                style={[styles.huntBtn, styles.huntBtnWarn, { marginBottom: 8 }]}
+                disabled={!!huntActionBusy}
+                onPress={() => {
+                  confirmAsync('Re-roll City', `Replace the 3 golden toilets in ${selectedCity?.city}? Existing check-ins are kept.`)
+                    .then(ok => {
+                      if (!ok) return;
+                      huntAction('reroll', () => api.hunt.admin.reroll(huntData.hunt.id, selectedCity.city))
+                        .then(() => setSelectedCity(null));
+                    });
+                }}
+              >
+                <Text style={styles.huntBtnText}>{huntActionBusy === 'reroll' ? '…' : `Re-roll ${selectedCity?.city}`}</Text>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity style={[styles.huntBtn, { backgroundColor: '#eee' }]} onPress={() => setSelectedCity(null)}>
+              <Text style={[styles.huntBtnText, { color: '#333' }]}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
       <Modal visible={!!editingReview} transparent animationType="fade">
         <View style={styles.modalBackdrop}>
@@ -1338,4 +1607,51 @@ const styles = StyleSheet.create({
   adminBadgeText: { fontSize: 11, fontWeight: '700', color: '#dc2626' },
   userCardBottom: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 },
   userMeta: { fontSize: 12, color: '#94a3b8' },
+
+  // Hunt tab
+  huntBanner: { backgroundColor: '#1a1a2e', borderRadius: 12, padding: 16, marginBottom: 12 },
+  huntBannerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
+  huntStatusBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, marginRight: 10 },
+  huntBadgeActive: { backgroundColor: '#22c55e' },
+  huntBadgePaused: { backgroundColor: '#f59e0b' },
+  huntBadgeInactive: { backgroundColor: '#64748b' },
+  huntStatusBadgeText: { fontSize: 11, fontWeight: '800', color: '#fff', letterSpacing: 1 },
+  huntBannerMonth: { fontSize: 16, fontWeight: '700', color: '#fff' },
+  huntBannerDates: { fontSize: 13, color: '#94a3b8', marginBottom: 2 },
+  huntBannerProgress: { fontSize: 14, color: '#e2e8f0', marginTop: 4 },
+  huntControls: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 },
+  huntBtn: { paddingHorizontal: 14, paddingVertical: 9, borderRadius: 8, marginBottom: 4 },
+  huntBtnPrimary: { backgroundColor: '#6366f1' },
+  huntBtnWarn: { backgroundColor: '#f59e0b' },
+  huntBtnGreen: { backgroundColor: '#22c55e' },
+  huntBtnGold: { backgroundColor: '#d97706', flex: 1 },
+  huntBtnText: { fontSize: 13, fontWeight: '700', color: '#fff' },
+  huntStartRow: { flexDirection: 'row', alignItems: 'center', gap: 8, width: '100%', marginTop: 4 },
+  huntDurationInput: { width: 56, borderWidth: 1, borderColor: '#475569', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 7, color: '#e2e8f0', fontSize: 13, textAlign: 'center', backgroundColor: '#1e293b' },
+  huntCityGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 16 },
+  huntCityCard: {
+    width: (SCREEN_WIDTH - 48 - 10) / 2,
+    backgroundColor: '#f8fafc',
+    borderRadius: 10,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  huntCityName: { fontSize: 13, fontWeight: '700', color: '#1e293b', marginBottom: 2 },
+  huntCityCount: { fontSize: 12, color: '#64748b', marginBottom: 6 },
+  huntProgressBar: { height: 6, backgroundColor: '#e2e8f0', borderRadius: 3, overflow: 'hidden' },
+  huntProgressFill: { height: 6, backgroundColor: '#FFD700', borderRadius: 3 },
+  huntCheckinHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+  huntCheckinList: { gap: 8, marginBottom: 24 },
+  huntCheckinRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f8fafc', borderRadius: 10, padding: 12, borderWidth: 1, borderColor: '#e2e8f0' },
+  huntCheckinName: { fontSize: 14, fontWeight: '600', color: '#1e293b' },
+  huntCheckinEmail: { fontSize: 12, color: '#6366f1', marginBottom: 2 },
+  huntCheckinMeta: { fontSize: 12, color: '#64748b' },
+  huntCheckinDate: { fontSize: 11, color: '#94a3b8', marginTop: 2 },
+  huntVoucherBtn: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 7, backgroundColor: '#e2e8f0', minWidth: 68, alignItems: 'center' },
+  huntVoucherBtnSent: { backgroundColor: '#dcfce7' },
+  huntVoucherBtnText: { fontSize: 12, fontWeight: '700', color: '#374151' },
+  huntToiletRow: { flexDirection: 'row', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
+  huntToiletName: { fontSize: 14, fontWeight: '600', color: '#1e293b' },
+  huntToiletStatus: { fontSize: 12, color: '#64748b', marginTop: 2 },
 });
