@@ -339,6 +339,78 @@ router.get('/crash-reports', async (_req: Request, res: Response) => {
   }
 });
 
+// GET /api/admin/users – list users with search, pagination, review count
+router.get(
+  '/users',
+  [
+    query('limit').optional().isInt({ min: 1, max: 500 }),
+    query('offset').optional().isInt({ min: 0 }),
+    query('search').optional().isString().trim(),
+    query('format').optional().isIn(['json', 'csv']),
+  ],
+  async (req: Request, res: Response) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
+      }
+      const limit = Math.min(Number(req.query.limit) || 50, 500);
+      const offset = Number(req.query.offset) || 0;
+      const search = (req.query.search as string || '').trim();
+      const format = (req.query.format as string) || 'json';
+
+      const where = search
+        ? `WHERE u.email ILIKE $3 OR u.display_name ILIKE $3`
+        : '';
+      const params: any[] = [limit, offset];
+      if (search) params.push(`%${search}%`);
+
+      const result = await pool.query(
+        `SELECT u.id, u.email, u.display_name, u.provider, u.role, u.created_at,
+                COUNT(r.id)::int AS review_count
+         FROM users u
+         LEFT JOIN toilet_reviews r ON r.user_id = u.id
+         ${where}
+         GROUP BY u.id
+         ORDER BY u.created_at DESC
+         LIMIT $1 OFFSET $2`,
+        params
+      );
+
+      const countParams = search ? [`%${search}%`] : [];
+      const countResult = await pool.query(
+        `SELECT COUNT(*)::int AS total FROM users u ${search ? 'WHERE u.email ILIKE $1 OR u.display_name ILIKE $1' : ''}`,
+        countParams
+      );
+      const total = countResult.rows[0]?.total ?? 0;
+
+      if (format === 'csv') {
+        const header = 'email,display_name,provider,role,review_count,created_at';
+        const csvEscape = (v: any) => {
+          const s = v == null ? '' : String(v);
+          return s.includes(',') || s.includes('"') || s.includes('\n')
+            ? `"${s.replace(/"/g, '""')}"`
+            : s;
+        };
+        const rows = result.rows.map((u: any) =>
+          [u.email, u.display_name, u.provider, u.role, u.review_count, u.created_at]
+            .map(csvEscape)
+            .join(',')
+        );
+        const csv = [header, ...rows].join('\n');
+        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+        res.setHeader('Content-Disposition', `attachment; filename="ploop-users-${new Date().toISOString().slice(0, 10)}.csv"`);
+        return res.send(csv);
+      }
+
+      res.json({ users: result.rows, total });
+    } catch (e) {
+      console.error('Admin list users:', e);
+      res.status(500).json({ error: 'Failed to list users' });
+    }
+  }
+);
+
 // POST /api/admin/register-push-token – store Expo push token for suggestion notifications
 router.post(
   '/register-push-token',

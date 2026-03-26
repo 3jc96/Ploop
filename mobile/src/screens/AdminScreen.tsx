@@ -14,7 +14,11 @@ import {
   Pressable,
   Linking,
   Modal,
+  Share,
+  Alert,
 } from 'react-native';
+import * as FileSystem from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
 import * as Notifications from 'expo-notifications';
 import { useNavigation, CommonActions } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
@@ -33,7 +37,7 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CHART_HEIGHT = 160;
 const BAR_GAP = 4;
 
-type Tab = 'overview' | 'moderation' | 'diagnostics';
+type Tab = 'overview' | 'moderation' | 'users' | 'diagnostics';
 type GroupBy = 'day' | 'week' | 'month';
 type RangePreset = '7d' | '30d' | '90d';
 
@@ -156,6 +160,15 @@ export default function AdminScreen() {
   const [editToiletName, setEditToiletName] = useState<string>('');
   const [savingEdit, setSavingEdit] = useState(false);
 
+  // Users tab
+  const [usersList, setUsersList] = useState<any[]>([]);
+  const [usersTotal, setUsersTotal] = useState(0);
+  const [usersOffset, setUsersOffset] = useState(0);
+  const [usersSearch, setUsersSearch] = useState('');
+  const [usersSearchInput, setUsersSearchInput] = useState('');
+  const [exportingCsv, setExportingCsv] = useState(false);
+  const USERS_PAGE_SIZE = 50;
+
   // Admin lock: PIN + Face ID / Touch ID
   const [pinStatus, setPinStatus] = useState<'loading' | 'none' | 'set'>('loading');
   const [unlocked, setUnlocked] = useState(false);
@@ -264,15 +277,55 @@ export default function AdminScreen() {
     }
   }, [isAdmin]);
 
+  const loadUsers = useCallback(async (append = false) => {
+    if (!isAdmin) return;
+    const offset = append ? usersOffset : 0;
+    try {
+      const data = await api.admin.getUsers({ limit: USERS_PAGE_SIZE, offset, search: usersSearch || undefined });
+      if (append) {
+        setUsersList((prev) => [...prev, ...data.users]);
+      } else {
+        setUsersList(data.users);
+      }
+      setUsersTotal(data.total);
+      setUsersOffset(append ? offset + data.users.length : data.users.length);
+    } catch (e) {
+      console.error(e);
+      if (!append) setUsersList([]);
+    }
+  }, [isAdmin, usersOffset, usersSearch]);
+
+  const handleExportCsv = useCallback(async () => {
+    setExportingCsv(true);
+    try {
+      const csv = await api.admin.getUsersCsv(usersSearch || undefined);
+      const filename = `ploop-users-${new Date().toISOString().slice(0, 10)}.csv`;
+      const fileUri = `${FileSystem.cacheDirectory}${filename}`;
+      await FileSystem.writeAsStringAsync(fileUri, csv, { encoding: FileSystem.EncodingType.UTF8 });
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(fileUri, { mimeType: 'text/csv', UTI: 'public.comma-separated-values-text' });
+      } else {
+        Alert.alert('Exported', `CSV saved to ${fileUri}`);
+      }
+    } catch (e: any) {
+      showAlert('Export failed', getErrorMessage(e, 'Could not export users'));
+    } finally {
+      setExportingCsv(false);
+    }
+  }, [usersSearch]);
+
   const refresh = useCallback(async () => {
     setRefreshing(true);
     const tasks = [loadDashboard(), loadReviews()];
     if (tab === 'diagnostics') {
       tasks.push(loadDiagnostics(), loadCrashReports());
     }
+    if (tab === 'users') {
+      tasks.push(loadUsers());
+    }
     await Promise.all(tasks);
     setRefreshing(false);
-  }, [loadDashboard, loadReviews, loadDiagnostics, loadCrashReports, tab]);
+  }, [loadDashboard, loadReviews, loadDiagnostics, loadCrashReports, loadUsers, tab]);
 
   useEffect(() => {
     if (!isAdmin) return;
@@ -291,6 +344,12 @@ export default function AdminScreen() {
     loadDiagnostics();
     loadCrashReports();
   }, [isAdmin, tab, loadDiagnostics, loadCrashReports]);
+
+  useEffect(() => {
+    if (!isAdmin || tab !== 'users') return;
+    setUsersOffset(0);
+    loadUsers();
+  }, [isAdmin, tab, usersSearch]);
 
   // Register push token for suggestion notifications (native only)
   useEffect(() => {
@@ -521,7 +580,7 @@ export default function AdminScreen() {
         <Text style={styles.headerTitle}>Admin</Text>
       </View>
 
-      <View style={styles.tabs}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabs} contentContainerStyle={styles.tabsContent}>
         <TouchableOpacity
           style={[styles.tab, tab === 'overview' && styles.tabActive]}
           onPress={() => setTab('overview')}
@@ -535,12 +594,18 @@ export default function AdminScreen() {
           <Text style={[styles.tabText, tab === 'moderation' && styles.tabTextActive]}>Moderation</Text>
         </TouchableOpacity>
         <TouchableOpacity
+          style={[styles.tab, tab === 'users' && styles.tabActive]}
+          onPress={() => setTab('users')}
+        >
+          <Text style={[styles.tabText, tab === 'users' && styles.tabTextActive]}>Users</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
           style={[styles.tab, tab === 'diagnostics' && styles.tabActive]}
           onPress={() => setTab('diagnostics')}
         >
           <Text style={[styles.tabText, tab === 'diagnostics' && styles.tabTextActive]}>Diagnostics</Text>
         </TouchableOpacity>
-      </View>
+      </ScrollView>
 
       <ScrollView
         style={styles.scroll}
@@ -819,6 +884,85 @@ export default function AdminScreen() {
           </>
         )}
 
+        {tab === 'users' && (
+          <>
+            <View style={styles.usersSearchRow}>
+              <TextInput
+                style={styles.usersSearchInput}
+                placeholder="Search by email or name…"
+                placeholderTextColor="#94a3b8"
+                value={usersSearchInput}
+                onChangeText={setUsersSearchInput}
+                onSubmitEditing={() => { setUsersOffset(0); setUsersSearch(usersSearchInput.trim()); }}
+                returnKeyType="search"
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+              <TouchableOpacity
+                style={styles.usersSearchBtn}
+                onPress={() => { setUsersOffset(0); setUsersSearch(usersSearchInput.trim()); }}
+              >
+                <Text style={styles.usersSearchBtnText}>Search</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={styles.usersHeaderRow}>
+              <Text style={styles.usersCount}>{usersTotal} user{usersTotal !== 1 ? 's' : ''}</Text>
+              <TouchableOpacity
+                style={[styles.csvBtn, exportingCsv && { opacity: 0.6 }]}
+                onPress={handleExportCsv}
+                disabled={exportingCsv}
+              >
+                {exportingCsv ? (
+                  <ActivityIndicator size="small" color="#6366f1" />
+                ) : (
+                  <Text style={styles.csvBtnText}>Export CSV</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+            {usersList.length === 0 && !loading ? (
+              <Text style={styles.empty}>No users found</Text>
+            ) : (
+              usersList.map((u: any) => (
+                <View key={u.id} style={styles.userCard}>
+                  <View style={styles.userCardTop}>
+                    <View style={styles.userInfo}>
+                      <Text style={styles.userName} numberOfLines={1}>
+                        {u.display_name || '(no name)'}
+                      </Text>
+                      <Text style={styles.userEmail} numberOfLines={1}>{u.email}</Text>
+                    </View>
+                    <View style={styles.userBadges}>
+                      <View style={[styles.providerBadge, u.provider === 'google' && styles.providerGoogle, u.provider === 'apple' && styles.providerApple]}>
+                        <Text style={styles.providerBadgeText}>
+                          {u.provider === 'google' ? 'Google' : u.provider === 'apple' ? 'Apple' : 'Email'}
+                        </Text>
+                      </View>
+                      {u.role === 'admin' && (
+                        <View style={styles.adminBadge}>
+                          <Text style={styles.adminBadgeText}>Admin</Text>
+                        </View>
+                      )}
+                    </View>
+                  </View>
+                  <View style={styles.userCardBottom}>
+                    <Text style={styles.userMeta}>
+                      {u.review_count} review{u.review_count !== 1 ? 's' : ''}
+                    </Text>
+                    <Text style={styles.userMeta}>
+                      Joined {new Date(u.created_at).toLocaleDateString()}
+                    </Text>
+                  </View>
+                </View>
+              ))
+            )}
+            {usersList.length < usersTotal && (
+              <TouchableOpacity style={styles.loadMoreBtn} onPress={() => loadUsers(true)}>
+                <Text style={styles.loadMoreBtnText}>Load more ({usersTotal - usersList.length} remaining)</Text>
+              </TouchableOpacity>
+            )}
+          </>
+        )}
+
         {tab === 'diagnostics' && (
           <>
             <Text style={styles.sectionTitle}>Load diagnostics (last 7 days)</Text>
@@ -977,7 +1121,8 @@ const styles = StyleSheet.create({
   headerBack: { marginRight: 12 },
   headerBackText: { fontSize: 16, color: '#6366f1', fontWeight: '600' },
   headerTitle: { fontSize: 20, fontWeight: '700', color: '#0f172a' },
-  tabs: { flexDirection: 'row', backgroundColor: '#fff', paddingHorizontal: 16, paddingBottom: 8 },
+  tabs: { backgroundColor: '#fff', paddingBottom: 8, maxHeight: 52 },
+  tabsContent: { paddingHorizontal: 16, flexDirection: 'row' },
   tab: { paddingVertical: 10, paddingHorizontal: 20, marginRight: 8, borderRadius: 8 },
   tabActive: { backgroundColor: '#6366f1' },
   tabText: { fontSize: 15, color: '#64748b', fontWeight: '600' },
@@ -1154,4 +1299,43 @@ const styles = StyleSheet.create({
   unlockButton: { backgroundColor: '#6366f1', paddingVertical: 14, borderRadius: 8, alignItems: 'center', marginTop: 8 },
   unlockButtonSecondary: { backgroundColor: '#64748b', marginTop: 4 },
   unlockButtonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
+  usersSearchRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
+  usersSearchInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+    backgroundColor: '#fff',
+    color: '#0f172a',
+  },
+  usersSearchBtn: { paddingHorizontal: 16, paddingVertical: 10, backgroundColor: '#6366f1', borderRadius: 8, justifyContent: 'center' },
+  usersSearchBtnText: { color: '#fff', fontSize: 14, fontWeight: '600' },
+  usersHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  usersCount: { fontSize: 14, color: '#64748b', fontWeight: '600' },
+  csvBtn: { paddingHorizontal: 14, paddingVertical: 8, backgroundColor: '#e0e7ff', borderRadius: 8 },
+  csvBtnText: { fontSize: 13, color: '#6366f1', fontWeight: '700' },
+  userCard: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  userCardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+  userInfo: { flex: 1, marginRight: 8 },
+  userName: { fontSize: 15, fontWeight: '700', color: '#0f172a' },
+  userEmail: { fontSize: 13, color: '#6366f1', marginTop: 2 },
+  userBadges: { flexDirection: 'row', gap: 6, flexShrink: 0 },
+  providerBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, backgroundColor: '#e2e8f0' },
+  providerGoogle: { backgroundColor: '#fef3c7' },
+  providerApple: { backgroundColor: '#e2e8f0' },
+  providerBadgeText: { fontSize: 11, fontWeight: '600', color: '#475569' },
+  adminBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, backgroundColor: '#fef2f2' },
+  adminBadgeText: { fontSize: 11, fontWeight: '700', color: '#dc2626' },
+  userCardBottom: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 },
+  userMeta: { fontSize: 12, color: '#94a3b8' },
 });

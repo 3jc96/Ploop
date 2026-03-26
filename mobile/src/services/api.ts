@@ -402,6 +402,21 @@ export const api = {
       const response = await httpClient.get(API_ENDPOINTS.adminCrashReports, { params: params || {}, headers: auth });
       return response.data;
     },
+    getUsers: async (params?: { limit?: number; offset?: number; search?: string }): Promise<{
+      users: Array<{ id: string; email: string; display_name: string | null; provider: string; role: string; created_at: string; review_count: number }>;
+      total: number;
+    }> => {
+      const auth = await api.getAuthHeaders();
+      const response = await httpClient.get(API_ENDPOINTS.adminUsers, { params: params || {}, headers: auth });
+      return response.data;
+    },
+    getUsersCsv: async (search?: string): Promise<string> => {
+      const auth = await api.getAuthHeaders();
+      const params: any = { format: 'csv', limit: 500 };
+      if (search) params.search = search;
+      const response = await httpClient.get(API_ENDPOINTS.adminUsers, { params, headers: auth, responseType: 'text' });
+      return response.data as unknown as string;
+    },
   },
 
   // Submit suggestion (40 chars max, sent to admin email + push)

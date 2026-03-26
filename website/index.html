@@ -6,12 +6,12 @@
     <title>Ploop — Toilet navigation</title>
     <meta
       name="description"
-      content="Find toilets near you. Never get caught short. Download Ploop on the App Store."
+      content="Find toilets near you. Play Game and Win Vouchers. Download Ploop on the App Store."
     />
     <meta property="og:title" content="Ploop — Toilet navigation" />
     <meta
       property="og:description"
-      content="Find toilets near you. Never get caught short."
+      content="Find toilets near you. Play Game and Win Vouchers."
     />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://ploop-app.com/" />
@@ -252,6 +252,237 @@
         font-size: 0.75rem;
         color: var(--text-soft);
       }
+
+      /* ── Treasure Hunt Popup ── */
+      .popup-backdrop {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.55);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 0.4s ease, visibility 0.4s ease;
+        padding: 24px;
+      }
+      .popup-backdrop.show {
+        opacity: 1;
+        visibility: visible;
+      }
+      .popup-card {
+        position: relative;
+        width: 100%;
+        max-width: 340px;
+        background: #fff;
+        border-radius: 20px;
+        padding: 36px 28px 28px;
+        text-align: center;
+        transform: scale(0.85) translateY(30px);
+        transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+        overflow: hidden;
+      }
+      .popup-backdrop.show .popup-card {
+        transform: scale(1) translateY(0);
+      }
+      .popup-card::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        border-radius: 20px;
+        padding: 3px;
+        background: linear-gradient(135deg, #ffd700, #fff4b0, #d97706, #ffe066, #ffd700, #fff8cc, #b8860b, #ffd700);
+        background-size: 400% 400%;
+        animation: goldShimmer 2.5s ease infinite;
+        -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+        -webkit-mask-composite: xor;
+        mask-composite: exclude;
+        pointer-events: none;
+      }
+      .popup-card::after {
+        content: '';
+        position: absolute;
+        top: -50%;
+        left: -60%;
+        width: 40%;
+        height: 200%;
+        background: linear-gradient(
+          90deg,
+          transparent,
+          rgba(255, 255, 255, 0.08),
+          rgba(255, 255, 255, 0.25),
+          rgba(255, 255, 255, 0.08),
+          transparent
+        );
+        transform: skewX(-20deg);
+        animation: cardShine 3s ease-in-out infinite;
+        pointer-events: none;
+      }
+      @keyframes cardShine {
+        0%   { left: -60%; }
+        100% { left: 140%; }
+      }
+      @keyframes goldShimmer {
+        0%   { background-position: 0% 50%; }
+        50%  { background-position: 100% 50%; }
+        100% { background-position: 0% 50%; }
+      }
+      .popup-sparkles {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        overflow: hidden;
+      }
+      .popup-sparkles span {
+        position: absolute;
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: radial-gradient(circle, #fff8b0, #ffd700);
+        box-shadow: 0 0 6px #ffd700, 0 0 12px rgba(255,215,0,0.4);
+        opacity: 0;
+        animation: sparkle 2s ease-in-out infinite;
+      }
+      .popup-sparkles span:nth-child(1) { top: 12%; left: 15%; animation-delay: 0s; }
+      .popup-sparkles span:nth-child(2) { top: 8%; right: 18%; animation-delay: 0.5s; }
+      .popup-sparkles span:nth-child(3) { bottom: 18%; left: 10%; animation-delay: 1s; }
+      .popup-sparkles span:nth-child(4) { bottom: 12%; right: 12%; animation-delay: 0.25s; }
+      .popup-sparkles span:nth-child(5) { top: 45%; left: 5%; animation-delay: 0.75s; width: 5px; height: 5px; }
+      .popup-sparkles span:nth-child(6) { top: 35%; right: 8%; animation-delay: 1.25s; width: 5px; height: 5px; }
+      .popup-sparkles span:nth-child(odd) {
+        animation-name: sparkleStar;
+      }
+      @keyframes sparkle {
+        0%, 100% { opacity: 0; transform: scale(0.3); }
+        50%      { opacity: 1; transform: scale(1.4); }
+      }
+      @keyframes sparkleStar {
+        0%, 100% { opacity: 0; transform: scale(0.3) rotate(0deg); }
+        50%      { opacity: 1; transform: scale(1.5) rotate(180deg); }
+      }
+      .popup-logo-wrap {
+        position: relative;
+        display: inline-block;
+        margin-bottom: 8px;
+      }
+      .popup-logo {
+        width: 80px;
+        height: 80px;
+        border-radius: 18px;
+        object-fit: cover;
+        filter: sepia(0.7) saturate(1.8) hue-rotate(15deg) brightness(1.1) contrast(1);
+        box-shadow:
+          0 0 24px rgba(255, 215, 0, 0.65),
+          0 0 44px rgba(255, 185, 0, 0.5);
+        animation: goldPulse 2s ease-in-out infinite;
+        border: 2px solid rgba(255, 215, 0, 0.3);
+      }
+      .popup-logo-wrap::after {
+        content: '';
+        position: absolute;
+        top: -4px;
+        left: -4px;
+        right: -4px;
+        bottom: -4px;
+        border-radius: 22px;
+        background: conic-gradient(
+          from 0deg,
+          transparent,
+          rgba(255, 215, 0, 0.6),
+          transparent,
+          rgba(255, 230, 100, 0.5),
+          transparent
+        );
+        animation: logoSpin 3s linear infinite;
+        z-index: -1;
+      }
+      @keyframes logoSpin {
+        100% { transform: rotate(360deg); }
+      }
+      @keyframes goldPulse {
+        0%, 100% {
+          box-shadow: 0 0 24px rgba(255,215,0,0.4), 0 0 48px rgba(255,185,0,0.15), 0 0 80px rgba(255,215,0,0.05);
+          filter: sepia(0.7) saturate(1.8) hue-rotate(15deg) brightness(1.1) contrast(1);
+        }
+        50% {
+          box-shadow: 0 0 34px rgba(255,215,0,0.75), 0 0 56px rgba(255,185,0,0.55);
+          filter: sepia(0.7) saturate(2) hue-rotate(15deg) brightness(1.2) contrast(1);
+        }
+      }
+      .popup-crown {
+        position: absolute;
+        top: -18px;
+        left: 50%;
+        transform: translateX(-50%);
+        font-size: 28px;
+        animation: crownBounce 2s ease-in-out infinite;
+        filter: drop-shadow(0 2px 4px rgba(0,0,0,0.15));
+      }
+      @keyframes crownBounce {
+        0%, 100% { transform: translateX(-50%) translateY(0); }
+        50%      { transform: translateX(-50%) translateY(-4px); }
+      }
+      .popup-title {
+        margin: 12px 0 6px;
+        font-size: 1.25rem;
+        font-weight: 800;
+        letter-spacing: 0.02em;
+        background: linear-gradient(90deg, #b8860b, #ffd700, #fff4b0, #ffd700, #b8860b);
+        background-size: 200% 100%;
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        animation: textShine 2.5s ease-in-out infinite;
+        text-shadow: none;
+      }
+      @keyframes textShine {
+        0%   { background-position: 0% 50%; }
+        50%  { background-position: 100% 50%; }
+        100% { background-position: 0% 50%; }
+      }
+      .popup-msg {
+        margin: 0 0 20px;
+        font-size: 0.9rem;
+        color: var(--text-muted);
+        line-height: 1.5;
+      }
+      .popup-dismiss {
+        display: inline-block;
+        padding: 10px 28px;
+        border: none;
+        border-radius: 10px;
+        font-size: 0.95rem;
+        font-weight: 700;
+        color: #fff;
+        background: linear-gradient(135deg, #d97706, #f59e0b);
+        cursor: pointer;
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
+        box-shadow: 0 4px 14px rgba(217, 119, 6, 0.35);
+      }
+      .popup-dismiss:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 6px 20px rgba(217, 119, 6, 0.45);
+      }
+      .popup-dismiss:active {
+        transform: scale(0.97);
+      }
+      .popup-close {
+        position: absolute;
+        top: 10px;
+        right: 12px;
+        background: none;
+        border: none;
+        font-size: 20px;
+        color: #94a3b8;
+        cursor: pointer;
+        padding: 4px 8px;
+        line-height: 1;
+        transition: color 0.15s ease;
+      }
+      .popup-close:hover {
+        color: #475569;
+      }
     </style>
   </head>
   <body>
@@ -261,7 +492,7 @@
         <div class="emoji" aria-hidden="true">🚽</div>
         <h1>Ploop</h1>
         <p class="subtitle">Find toilets near you</p>
-        <p class="tagline">Never get caught short.</p>
+        <p class="tagline">Play Game and Win Vouchers</p>
 
         <a
           class="btn-appstore"
@@ -326,5 +557,41 @@
         <footer>© Ploop</footer>
       </main>
     </div>
+    <!-- Treasure Hunt Popup -->
+    <div class="popup-backdrop" id="treasurePopup">
+      <div class="popup-card">
+        <button class="popup-close" id="popupClose" aria-label="Close">&times;</button>
+        <div class="popup-sparkles">
+          <span></span><span></span><span></span>
+          <span></span><span></span><span></span>
+        </div>
+        <div class="popup-logo-wrap">
+          <span class="popup-crown">👑</span>
+          <img class="popup-logo" src="assets/logo.png" width="80" height="80" alt="Golden Ploop" />
+        </div>
+        <div class="popup-title">Treasure Hunt</div>
+        <p class="popup-msg">Stay tuned for our treasure hunt game!<br/>Find golden toilets and win real prizes.</p>
+        <button class="popup-dismiss" id="popupDismiss">I'm in!</button>
+      </div>
+    </div>
+    <script>
+      (function () {
+        var popup = document.getElementById('treasurePopup');
+        var close = document.getElementById('popupClose');
+        var dismiss = document.getElementById('popupDismiss');
+        var key = 'ploop_treasure_popup_seen';
+        if (sessionStorage.getItem(key)) return;
+        setTimeout(function () { popup.classList.add('show'); }, 2000);
+        function hide() {
+          popup.classList.remove('show');
+          sessionStorage.setItem(key, '1');
+        }
+        close.addEventListener('click', hide);
+        dismiss.addEventListener('click', hide);
+        popup.addEventListener('click', function (e) {
+          if (e.target === popup) hide();
+        });
+      })();
+    </script>
   </body>
 </html>

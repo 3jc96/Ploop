@@ -181,6 +181,7 @@ export const API_ENDPOINTS = {
   adminReviews: `${API_BASE_URL}/api/admin/reviews`,
   adminUpdateReview: (id: string) => `${API_BASE_URL}/api/admin/reviews/${id}`,
   adminDeleteReview: (id: string) => `${API_BASE_URL}/api/admin/reviews/${id}`,
+  adminUsers: `${API_BASE_URL}/api/admin/users`,
   // Poop game
   poopGameScores: `${API_BASE_URL}/api/poop-game/scores`,
   // Suggestions (40 chars, sent to admin)
