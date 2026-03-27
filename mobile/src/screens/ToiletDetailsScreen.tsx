@@ -79,6 +79,7 @@ const ToiletDetailsScreen: React.FC = () => {
   const [markingServiced, setMarkingServiced] = useState(false);
   const [checkingIn, setCheckingIn] = useState(false);
   const [checkedInToday, setCheckedInToday] = useState(false);
+  const [goldenResult, setGoldenResult] = useState<{ toiletName: string; city: string } | null>(null);
 
   useEffect(() => {
     if (!toiletId) return;
@@ -340,6 +341,22 @@ const loadToilet = async () => {
         </View>
       </Modal>
 
+      {/* ── Golden Toilet congratulations banner ── */}
+      <Modal visible={!!goldenResult} transparent animationType="fade" onRequestClose={() => setGoldenResult(null)}>
+        <Pressable style={styles.sosBackdrop} onPress={() => setGoldenResult(null)} />
+        <View style={styles.sosModalContent}>
+          <View style={styles.goldenModalInner}>
+            <Text style={styles.goldenEmoji}>🏆</Text>
+            <Text style={styles.goldenTitle}>Golden Toilet!</Text>
+            <Text style={styles.goldenSubtitle}>You found a golden toilet in {goldenResult?.city}!</Text>
+            <Text style={styles.goldenBody}>You're eligible for a $10 voucher. Our team will be in touch soon.</Text>
+            <TouchableOpacity style={styles.goldenBtn} onPress={() => setGoldenResult(null)}>
+              <Text style={styles.goldenBtnText}>Awesome!</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
       {toilet.last_serviced_at && (
         <View style={styles.servicedBadge}>
           <Text style={styles.servicedBadgeText}>
@@ -358,6 +375,9 @@ const loadToilet = async () => {
             if (res.checked_in) {
               hapticSuccess();
               playFlushSound();
+            }
+            if (res.golden && res.golden_eligible) {
+              setGoldenResult({ toiletName: res.toilet_name ?? toilet?.name ?? '', city: res.city ?? '' });
             }
           } catch (e: any) {
             Alert.alert(t('error'), getErrorMessage(e, 'Failed to check in.'));
@@ -1232,6 +1252,22 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '600',
   },
+  goldenModalInner: {
+    backgroundColor: '#1a1200',
+    borderRadius: 20,
+    padding: 28,
+    width: '100%',
+    maxWidth: 340,
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#FFD700',
+  },
+  goldenEmoji: { fontSize: 52, marginBottom: 8 },
+  goldenTitle: { fontSize: 26, fontWeight: '800', color: '#FFD700', marginBottom: 6, textAlign: 'center' },
+  goldenSubtitle: { fontSize: 15, fontWeight: '600', color: '#fff', marginBottom: 8, textAlign: 'center' },
+  goldenBody: { fontSize: 13, color: '#c9b96e', textAlign: 'center', marginBottom: 24, lineHeight: 19 },
+  goldenBtn: { backgroundColor: '#FFD700', borderRadius: 12, paddingHorizontal: 32, paddingVertical: 12 },
+  goldenBtnText: { fontSize: 15, fontWeight: '800', color: '#1a1200' },
 });
 
 export default ToiletDetailsScreen;

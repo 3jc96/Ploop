@@ -1155,6 +1155,15 @@ export default function AdminScreen() {
                   >
                     <Text style={styles.huntBtnText}>{huntActionBusy === 'notify' ? '…' : 'Notify Users'}</Text>
                   </TouchableOpacity>
+                  {huntData?.hunt && (
+                    <TouchableOpacity
+                      style={[styles.huntBtn, { backgroundColor: '#0ea5e9', alignSelf: 'stretch' }]}
+                      disabled={!!huntActionBusy}
+                      onPress={() => huntAction('syncCities', () => api.hunt.admin.syncCities()).then(() => loadHuntDashboard())}
+                    >
+                      <Text style={styles.huntBtnText}>{huntActionBusy === 'syncCities' ? '…' : 'Sync Missing Cities'}</Text>
+                    </TouchableOpacity>
+                  )}
                   {!huntData?.hunt?.active && !huntData?.hunt?.isPaused && (
                     <View style={styles.huntStartRow}>
                       <TextInput

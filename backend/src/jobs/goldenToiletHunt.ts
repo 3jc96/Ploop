@@ -18,7 +18,6 @@ import { v4 as uuidv4 } from 'uuid';
 const GOLDEN_PER_CITY = 3;
 const HUNT_DURATION_DAYS = 21;
 const NOTIFY_DAYS_BEFORE = 7;
-const DAILY_GOLDEN_LIMIT = 2;
 
 // Next hunt start = 5th of current month if today < 5th, else 5th of next month (UTC)
 export function nextHuntStart(now = new Date()): Date {
@@ -203,23 +202,16 @@ export async function handleGoldenCheckin(
   );
   if (cityStatus.length > 0 && (cityStatus[0].is_paused || cityStatus[0].is_ended)) return null;
 
-  // Count distinct golden toilets checked in today by this device (including current)
-  const { rows: countRows } = await pool.query<{ count: string }>(
-    `SELECT COUNT(DISTINCT tc.toilet_id) AS count
-     FROM toilet_checkins tc
-     JOIN golden_hunt_toilets ght ON ght.toilet_id = tc.toilet_id AND ght.hunt_id = $1
-     WHERE tc.device_id = $2 AND tc.checked_in_at::date = CURRENT_DATE`,
-    [huntId, deviceId],
-  );
-  const dailyCount = parseInt(countRows[0]?.count ?? '0', 10);
-  const eligible = dailyCount <= DAILY_GOLDEN_LIMIT;
+  // Only the very first check-in on a toilet (globally) is voucher-eligible
+  const isFirstFinder = !golden.is_found;
 
   // Mark toilet as found on first ever check-in
-  if (!golden.is_found) {
+  if (isFirstFinder) {
     await pool.query('UPDATE golden_hunt_toilets SET is_found = true, found_at = now() WHERE id = $1', [golden.id]);
   }
 
-  // Record eligible check-in for admin dashboard + voucher tracking
+  // Record the check-in for admin tracking (all check-ins, but voucher only for first finder)
+  const eligible = isFirstFinder;
   if (eligible) {
     let userName: string | null = null;
     let userEmail: string | null = null;

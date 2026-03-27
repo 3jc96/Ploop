@@ -298,6 +298,60 @@ router.post('/:huntId/cities/:city/end', cityActionValidator, async (req: Reques
   await setCityStatus(req.params.huntId, decodeURIComponent(req.params.city), false, true, res);
 });
 
+// ── Sync missing cities into active hunt ─────────────────────────────────────
+
+router.post('/sync-cities', async (_req: Request, res: Response) => {
+  try {
+    // Find the most recent active (or paused) hunt
+    const { rows: hunts } = await pool.query<{ id: string }>(
+      `SELECT id FROM golden_hunts
+       WHERE starts_at <= now() AND ends_at >= now()
+       ORDER BY starts_at DESC LIMIT 1`,
+    );
+    if (hunts.length === 0) return res.status(404).json({ error: 'No active hunt found' });
+    const huntId = hunts[0].id;
+
+    // Cities already in the hunt
+    const { rows: existing } = await pool.query<{ city: string }>(
+      'SELECT DISTINCT city FROM golden_hunt_toilets WHERE hunt_id = $1',
+      [huntId],
+    );
+    const existingCities = new Set(existing.map(r => r.city));
+
+    // All cities with active toilets
+    const { rows: allCities } = await pool.query<{ city: string }>(
+      'SELECT DISTINCT city FROM toilets WHERE city IS NOT NULL AND is_active = true',
+    );
+
+    const missing = allCities.map(r => r.city).filter(c => !existingCities.has(c));
+    if (missing.length === 0) return res.json({ ok: true, added: 0, cities: [] });
+
+    const GOLDEN_PER_CITY = 3;
+    const added: string[] = [];
+    for (const city of missing) {
+      const { rows: toilets } = await pool.query<{ id: string }>(
+        'SELECT id FROM toilets WHERE city = $1 AND is_active = true ORDER BY RANDOM() LIMIT $2',
+        [city, GOLDEN_PER_CITY],
+      );
+      for (const { id: toiletId } of toilets) {
+        await pool.query(
+          `INSERT INTO golden_hunt_toilets (id, hunt_id, toilet_id, city, is_found)
+           VALUES ($1, $2, $3, $4, false)
+           ON CONFLICT DO NOTHING`,
+          [uuidv4(), huntId, toiletId, city],
+        );
+      }
+      added.push(city);
+    }
+
+    console.log(`[HuntAdmin] Synced ${added.length} missing cities into hunt ${huntId}`);
+    res.json({ ok: true, added: added.length, cities: added });
+  } catch (e) {
+    console.error('[HuntAdmin] sync-cities error:', e);
+    res.status(500).json({ error: 'Failed to sync cities' });
+  }
+});
+
 // ── Manual notification ──────────────────────────────────────────────────────
 
 router.post('/notify', async (_req: Request, res: Response) => {
