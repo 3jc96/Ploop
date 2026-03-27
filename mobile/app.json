@@ -20,7 +20,7 @@
     },
     "ios": {
       "supportsTablet": true,
-      "buildNumber": "60",
+      "buildNumber": "61",
       "bundleIdentifier": "com.ploop.app",
       "config": {
         "googleMapsApiKey": "AIzaSyCLKBC2IeU1rQVSdhSZBCfDu984LcwiSXg"
@@ -45,10 +45,7 @@
       },
       "permissions": [
         "android.permission.ACCESS_FINE_LOCATION",
-        "android.permission.ACCESS_COARSE_LOCATION",
-        "android.permission.READ_EXTERNAL_STORAGE",
-        "android.permission.WRITE_EXTERNAL_STORAGE",
-        "android.permission.RECORD_AUDIO"
+        "android.permission.ACCESS_COARSE_LOCATION"
       ],
       "config": {
         "googleMaps": {
