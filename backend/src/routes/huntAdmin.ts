@@ -257,6 +257,21 @@ router.post(
   },
 );
 
+router.post('/:huntId/end', [param('huntId').isUUID()], async (req: Request, res: Response) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+  try {
+    const { rowCount } = await pool.query(
+      'UPDATE golden_hunts SET ends_at = now(), is_paused = false WHERE id = $1 RETURNING id',
+      [req.params.huntId],
+    );
+    if (!rowCount) return res.status(404).json({ error: 'Hunt not found' });
+    res.json({ ok: true, ended: true });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to end hunt' });
+  }
+});
+
 // ── City-level pause / resume / end ──────────────────────────────────────────
 
 const cityActionValidator = [param('huntId').isUUID(), param('city').isString().trim().notEmpty()];

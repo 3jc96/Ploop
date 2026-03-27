@@ -1148,6 +1148,15 @@ export default function AdminScreen() {
                       <Text style={styles.huntBtnText}>{huntActionBusy === 'resume' ? '…' : 'Resume'}</Text>
                     </TouchableOpacity>
                   )}
+                  {(huntData?.hunt?.active || huntData?.hunt?.isPaused) && (
+                    <TouchableOpacity
+                      style={[styles.huntBtn, { backgroundColor: '#ef4444' }]}
+                      disabled={!!huntActionBusy}
+                      onPress={() => confirmAsync('End Hunt', 'End the hunt now? This cannot be undone. You can start a new one immediately after.').then(ok => { if (ok) huntAction('endHunt', () => api.hunt.admin.end(huntData.hunt.id)); })}
+                    >
+                      <Text style={styles.huntBtnText}>{huntActionBusy === 'endHunt' ? '…' : 'End Hunt'}</Text>
+                    </TouchableOpacity>
+                  )}
                   <TouchableOpacity
                     style={[styles.huntBtn, styles.huntBtnPrimary]}
                     disabled={!!huntActionBusy}
