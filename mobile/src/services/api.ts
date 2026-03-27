@@ -498,11 +498,6 @@ export const api = {
         const response = await httpClient.get(API_ENDPOINTS.huntAdminExport, { headers: auth, responseType: 'text' });
         return response.data as unknown as string;
       },
-      end: async (huntId: string): Promise<any> => {
-        const auth = await api.getAuthHeaders();
-        const response = await httpClient.post(API_ENDPOINTS.huntAdminEnd(huntId), {}, { headers: auth });
-        return response.data;
-      },
       syncCities: async (): Promise<any> => {
         const auth = await api.getAuthHeaders();
         const response = await httpClient.post(API_ENDPOINTS.huntAdminSyncCities, {}, { headers: auth });

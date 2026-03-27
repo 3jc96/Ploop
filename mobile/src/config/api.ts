@@ -200,7 +200,6 @@ export const API_ENDPOINTS = {
   huntAdminCheckins: `${API_BASE_URL}/api/admin/hunt/checkins`,
   huntAdminVoucher: (checkinId: string) => `${API_BASE_URL}/api/admin/hunt/checkins/${checkinId}/voucher`,
   huntAdminExport: `${API_BASE_URL}/api/admin/hunt/checkins/export`,
-  huntAdminEnd: (huntId: string) => `${API_BASE_URL}/api/admin/hunt/${huntId}/end`,
   huntAdminSyncCities: `${API_BASE_URL}/api/admin/hunt/sync-cities`,
   huntAdminCityPause: (huntId: string, city: string) => `${API_BASE_URL}/api/admin/hunt/${huntId}/cities/${encodeURIComponent(city)}/pause`,
   huntAdminCityResume: (huntId: string, city: string) => `${API_BASE_URL}/api/admin/hunt/${huntId}/cities/${encodeURIComponent(city)}/resume`,

@@ -141,17 +141,12 @@ router.post(
       const now = new Date();
       const startsAt = now;
       const endsAt = new Date(now.getTime() + durationDays * 86_400_000);
-      const notifyAt = now; // already started — notify at is now
-      const monthKey = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
+      const notifyAt = now;
+      const baseKey = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
+      const finalKey = `${baseKey}-${String(Date.now()).slice(-6)}`;
 
-      // If a hunt for this month already exists, end it first and create a fresh one
-      await pool.query(
-        `UPDATE golden_hunts SET ends_at = now() WHERE month_key = $1 AND ends_at > now()`,
-        [monthKey],
-      );
-      // Use a unique key if the month already has a record (append timestamp suffix)
-      const existing = await pool.query('SELECT id FROM golden_hunts WHERE month_key = $1', [monthKey]);
-      const finalKey = existing.rows.length > 0 ? `${monthKey}-${Date.now()}` : monthKey;
+      // End all currently active hunts before starting a new one
+      await pool.query(`UPDATE golden_hunts SET ends_at = now() WHERE ends_at > now()`);
 
       const huntId = uuidv4();
       await pool.query(
@@ -228,49 +223,51 @@ router.post(
     const { huntId, city } = req.params;
     const decodedCity = decodeURIComponent(city);
     try {
-      // Delete existing golden toilets for this city in this hunt
-      await pool.query(
-        'DELETE FROM golden_hunt_toilets WHERE hunt_id = $1 AND city = $2',
+      // Get existing golden toilet rows for this city (update in-place to preserve FK refs from check-ins)
+      const { rows: existing } = await pool.query<{ id: string }>(
+        'SELECT id FROM golden_hunt_toilets WHERE hunt_id = $1 AND city = $2 ORDER BY id',
         [huntId, decodedCity],
       );
 
-      // Pick 3 new random toilets
+      // Pick new random toilets (exclude currently assigned ones to avoid duplicates)
+      const currentIds = existing.map(r => r.id);
       const { rows: toilets } = await pool.query<{ id: string }>(
-        'SELECT id FROM toilets WHERE city = $1 AND is_active = true ORDER BY RANDOM() LIMIT 3',
-        [decodedCity],
+        `SELECT t.id FROM toilets t
+         WHERE t.city = $1 AND t.is_active = true
+           AND t.id NOT IN (
+             SELECT toilet_id FROM golden_hunt_toilets WHERE hunt_id = $2
+           )
+         ORDER BY RANDOM() LIMIT $3`,
+        [decodedCity, huntId, existing.length || 3],
       );
 
-      if (toilets.length === 0) return res.status(404).json({ error: `No active toilets in ${decodedCity}` });
+      if (toilets.length === 0) return res.status(404).json({ error: `No active toilets available for re-roll in ${decodedCity}` });
 
-      for (const { id: toiletId } of toilets) {
+      // Update existing rows in-place (preserves IDs referenced by check-ins)
+      for (let i = 0; i < existing.length && i < toilets.length; i++) {
         await pool.query(
-          'INSERT INTO golden_hunt_toilets (id, hunt_id, toilet_id, city) VALUES ($1, $2, $3, $4)',
-          [uuidv4(), huntId, toiletId, decodedCity],
+          'UPDATE golden_hunt_toilets SET toilet_id = $1, is_found = false, found_at = NULL WHERE id = $2',
+          [toilets[i].id, existing[i].id],
         );
       }
 
-      res.json({ ok: true, city: decodedCity, count: toilets.length });
+      // If there were no existing rows, insert new ones
+      if (existing.length === 0) {
+        for (const { id: toiletId } of toilets.slice(0, 3)) {
+          await pool.query(
+            'INSERT INTO golden_hunt_toilets (id, hunt_id, toilet_id, city) VALUES ($1, $2, $3, $4)',
+            [uuidv4(), huntId, toiletId, decodedCity],
+          );
+        }
+      }
+
+      res.json({ ok: true, city: decodedCity, count: Math.max(existing.length, toilets.length) });
     } catch (e) {
       console.error('[HuntAdmin] reroll error:', e);
       res.status(500).json({ error: 'Failed to re-roll golden toilets' });
     }
   },
 );
-
-router.post('/:huntId/end', [param('huntId').isUUID()], async (req: Request, res: Response) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
-  try {
-    const { rowCount } = await pool.query(
-      'UPDATE golden_hunts SET ends_at = now(), is_paused = false WHERE id = $1 RETURNING id',
-      [req.params.huntId],
-    );
-    if (!rowCount) return res.status(404).json({ error: 'Hunt not found' });
-    res.json({ ok: true, ended: true });
-  } catch (e) {
-    res.status(500).json({ error: 'Failed to end hunt' });
-  }
-});
 
 // ── City-level pause / resume / end ──────────────────────────────────────────
 

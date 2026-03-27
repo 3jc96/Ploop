@@ -265,6 +265,10 @@ export async function ensureFeatureTables(): Promise<void> {
     );
   `);
   await safe(`CREATE INDEX IF NOT EXISTS idx_golden_hunts_starts ON golden_hunts (starts_at);`);
+  // Drop unique constraint on month_key so multiple hunts can exist per month
+  await safe(`ALTER TABLE golden_hunts DROP CONSTRAINT IF EXISTS golden_hunts_month_key_key`);
+  // Widen month_key to text so timestamp-suffixed keys fit
+  await safe(`ALTER TABLE golden_hunts ALTER COLUMN month_key TYPE text`);
 
   await safe(`
     CREATE TABLE IF NOT EXISTS golden_hunt_toilets (

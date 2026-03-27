@@ -1148,15 +1148,6 @@ export default function AdminScreen() {
                       <Text style={styles.huntBtnText}>{huntActionBusy === 'resume' ? '…' : 'Resume'}</Text>
                     </TouchableOpacity>
                   )}
-                  {(huntData?.hunt?.active || huntData?.hunt?.isPaused) && (
-                    <TouchableOpacity
-                      style={[styles.huntBtn, { backgroundColor: '#ef4444' }]}
-                      disabled={!!huntActionBusy}
-                      onPress={() => confirmAsync('End Hunt', 'End the hunt now? This cannot be undone. You can start a new one immediately after.').then(ok => { if (ok) huntAction('endHunt', () => api.hunt.admin.end(huntData.hunt.id)); })}
-                    >
-                      <Text style={styles.huntBtnText}>{huntActionBusy === 'endHunt' ? '…' : 'End Hunt'}</Text>
-                    </TouchableOpacity>
-                  )}
                   <TouchableOpacity
                     style={[styles.huntBtn, styles.huntBtnPrimary]}
                     disabled={!!huntActionBusy}
@@ -1173,25 +1164,23 @@ export default function AdminScreen() {
                       <Text style={styles.huntBtnText}>{huntActionBusy === 'syncCities' ? '…' : 'Sync Missing Cities'}</Text>
                     </TouchableOpacity>
                   )}
-                  {!huntData?.hunt?.active && !huntData?.hunt?.isPaused && (
-                    <View style={styles.huntStartRow}>
-                      <TextInput
-                        style={styles.huntDurationInput}
-                        value={huntDuration}
-                        onChangeText={setHuntDuration}
-                        keyboardType="numeric"
-                        placeholder="Days"
-                        maxLength={2}
-                      />
-                      <TouchableOpacity
-                        style={[styles.huntBtn, styles.huntBtnGold]}
-                        disabled={!!huntActionBusy}
-                        onPress={() => confirmAsync('Start Hunt Now', `Start a ${parseInt(huntDuration, 10) || 21}-day hunt immediately?`).then(ok => { if (ok) huntAction('start', () => api.hunt.admin.start(parseInt(huntDuration, 10) || 21)); })}
-                      >
-                        <Text style={styles.huntBtnText}>{huntActionBusy === 'start' ? '…' : 'Start Hunt Now'}</Text>
-                      </TouchableOpacity>
-                    </View>
-                  )}
+                  <View style={styles.huntStartRow}>
+                    <TextInput
+                      style={styles.huntDurationInput}
+                      value={huntDuration}
+                      onChangeText={setHuntDuration}
+                      keyboardType="numeric"
+                      placeholder="Days"
+                      maxLength={2}
+                    />
+                    <TouchableOpacity
+                      style={[styles.huntBtn, styles.huntBtnGold]}
+                      disabled={!!huntActionBusy}
+                      onPress={() => confirmAsync('Start Hunt Now', `Start a ${parseInt(huntDuration, 10) || 21}-day hunt immediately?${huntData?.hunt?.active || huntData?.hunt?.isPaused ? '\n\nThis will end the current hunt.' : ''}`).then(ok => { if (ok) huntAction('start', () => api.hunt.admin.start(parseInt(huntDuration, 10) || 21)); })}
+                    >
+                      <Text style={styles.huntBtnText}>{huntActionBusy === 'start' ? '…' : 'Start Hunt Now'}</Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
 
                 {/* ── City progress ── */}
