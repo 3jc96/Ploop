@@ -2,7 +2,7 @@
  * Secured maintenance endpoints (cron / manual). Not listed on public API index.
  */
 import express, { Request, Response } from 'express';
-import { runMonthlyPoopGameTop3Report } from '../jobs/monthlyPoopGameTop3';
+import { runMonthlyPoopGameTop3Report, runMonthlyLeaderboardReset } from '../jobs/monthlyPoopGameTop3';
 
 const router = express.Router();
 
@@ -27,6 +27,21 @@ router.post('/monthly-poop-game-report', async (req: Request, res: Response) => 
   } catch (e) {
     console.error('[InternalJobs] monthly-poop-game-report:', e);
     res.status(500).json({ error: 'Failed to run report' });
+  }
+});
+
+// POST /api/internal/monthly-poop-game-leaderboard-reset — clear all game scores (idempotent per month)
+router.post('/monthly-poop-game-leaderboard-reset', async (req: Request, res: Response) => {
+  if (!authorize(req)) {
+    return res.status(404).json({ error: 'Not found' });
+  }
+  const force = req.query.force === '1' || req.body?.force === true;
+  try {
+    const result = await runMonthlyLeaderboardReset({ force });
+    res.json(result);
+  } catch (e) {
+    console.error('[InternalJobs] monthly-poop-game-leaderboard-reset:', e);
+    res.status(500).json({ error: 'Failed to reset leaderboard' });
   }
 });
 

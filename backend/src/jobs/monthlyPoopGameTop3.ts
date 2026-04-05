@@ -28,6 +28,46 @@ export function previousMonthRangeUTC(now = new Date()): {
 }
 
 const JOB_PREFIX = 'poop_game_monthly_top3:';
+const RESET_JOB_PREFIX = 'poop_game_leaderboard_reset:';
+
+/**
+ * Idempotency key for the reset at the start of this UTC month (e.g. 2026-03 on 1 Mar 2026).
+ */
+export function currentMonthResetJobIdUTC(now = new Date()): string {
+  const y = now.getUTCFullYear();
+  const m = now.getUTCMonth() + 1;
+  return `${RESET_JOB_PREFIX}${y}-${String(m).padStart(2, '0')}`;
+}
+
+/**
+ * Deletes all poop game scores (global leaderboard). Run on the 1st of each month UTC,
+ * after {@link runMonthlyPoopGameTop3Report} so the previous month's data is still in DB for the email.
+ */
+export async function runMonthlyLeaderboardReset(options?: {
+  force?: boolean;
+}): Promise<{ ok: boolean; skipped?: string; deleted?: number; jobId?: string }> {
+  const jobId = currentMonthResetJobIdUTC();
+
+  if (!options?.force) {
+    const done = await pool.query('SELECT 1 FROM scheduled_job_runs WHERE job_id = $1', [jobId]);
+    if (done.rowCount && done.rowCount > 0) {
+      return { ok: true, skipped: 'already_reset', jobId };
+    }
+  }
+
+  const del = await pool.query('DELETE FROM poop_game_scores');
+  const deleted = del.rowCount ?? 0;
+
+  if (!options?.force) {
+    await pool.query(
+      `INSERT INTO scheduled_job_runs (job_id) VALUES ($1) ON CONFLICT (job_id) DO NOTHING`,
+      [jobId]
+    );
+  }
+
+  console.log(`[MonthlyPoopGame] Leaderboard reset: ${deleted} row(s) removed (${jobId})`);
+  return { ok: true, deleted, jobId };
+}
 
 /**
  * Top 3 signed-in players by best single score in [start, end).
@@ -114,7 +154,7 @@ export async function runMonthlyPoopGameTop3Report(options?: {
   return { ok: true, sent: mailed, jobId };
 }
 
-/** Start hourly check: on UTC day 1, send report for previous month once. */
+/** Start hourly check: on UTC day 1, send report for previous month, then clear leaderboard (once each). */
 export function scheduleMonthlyPoopGameTop3Report(): void {
   const tick = async () => {
     try {
@@ -122,9 +162,12 @@ export function scheduleMonthlyPoopGameTop3Report(): void {
       if (now.getUTCDate() !== 1) return;
       const hourUtc = parseInt(process.env.MONTHLY_POOP_GAME_REPORT_HOUR_UTC || '8', 10);
       if (now.getUTCHours() < hourUtc) return;
+      // Report first (reads last month's rows), then reset high scores for the new month.
       const result = await runMonthlyPoopGameTop3Report();
       if (result.sent) console.log('[MonthlyPoopGame] Report sent:', result.jobId);
       else if (result.skipped) console.log('[MonthlyPoopGame] Skip:', result.skipped, result.jobId);
+
+      await runMonthlyLeaderboardReset();
     } catch (e) {
       console.error('[MonthlyPoopGame] Scheduled run failed:', e);
     }

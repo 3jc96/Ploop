@@ -411,6 +411,106 @@ router.get(
   }
 );
 
+// GET /api/admin/poop-game/new-records – submissions that strictly exceeded all prior scores (new global high at that time)
+router.get(
+  '/poop-game/new-records',
+  [
+    query('limit').optional().isInt({ min: 1, max: 500 }),
+    query('offset').optional().isInt({ min: 0 }),
+    query('format').optional().isIn(['json', 'csv']),
+    query('signedInOnly').optional().isIn(['0', '1', 'true', 'false']),
+  ],
+  async (req: Request, res: Response) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
+      }
+      const limit = Math.min(Number(req.query.limit) || 100, 500);
+      const offset = Number(req.query.offset) || 0;
+      const format = (req.query.format as string) || 'json';
+      const signedInOnly = ['1', 'true'].includes(String(req.query.signedInOnly || '').toLowerCase());
+
+      const baseCte = `WITH ordered AS (
+        SELECT
+          p.id,
+          p.score,
+          p.display_name,
+          p.created_at,
+          p.user_id,
+          p.device_id,
+          MAX(p.score) OVER (ORDER BY p.created_at ASC ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING) AS prev_max
+        FROM poop_game_scores p
+      )`;
+
+      const signedFilter = signedInOnly ? 'AND o.user_id IS NOT NULL' : '';
+
+      const countResult = await pool.query(
+        `${baseCte}
+         SELECT COUNT(*)::int AS total
+         FROM ordered o
+         WHERE o.score > COALESCE(o.prev_max, -1) ${signedFilter}`,
+        []
+      );
+      const total = countResult.rows[0]?.total ?? 0;
+
+      const result = await pool.query(
+        `${baseCte}
+         SELECT o.id, o.score, o.display_name, o.created_at, o.user_id, o.device_id,
+                u.email AS user_email, u.display_name AS account_display_name
+         FROM ordered o
+         LEFT JOIN users u ON o.user_id = u.id
+         WHERE o.score > COALESCE(o.prev_max, -1) ${signedFilter}
+         ORDER BY o.created_at DESC
+         LIMIT $1 OFFSET $2`,
+        [limit, offset]
+      );
+
+      if (format === 'csv') {
+        const header =
+          'score,game_display_name,created_at,user_email,account_display_name,device_id,record_id';
+        const csvEscape = (v: any) => {
+          const s = v == null ? '' : String(v);
+          return s.includes(',') || s.includes('"') || s.includes('\n')
+            ? `"${s.replace(/"/g, '""')}"`
+            : s;
+        };
+        const rows = result.rows.map((r: any) =>
+          [
+            r.score,
+            r.display_name,
+            r.created_at,
+            r.user_email,
+            r.account_display_name,
+            r.device_id,
+            r.id,
+          ]
+            .map(csvEscape)
+            .join(',')
+        );
+        const csv = [header, ...rows].join('\n');
+        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+        res.setHeader(
+          'Content-Disposition',
+          `attachment; filename="ploop-poop-game-new-records-${new Date().toISOString().slice(0, 10)}.csv"`
+        );
+        return res.send(csv);
+      }
+
+      res.json({
+        description:
+          'Each row is a score submission that was strictly higher than every prior submission (by time). ' +
+          'Account email is present when the player was signed in. Monthly leaderboard reset clears history.',
+        records: result.rows,
+        total,
+      });
+    } catch (e) {
+      console.error('Admin poop-game new-records:', e);
+      res.status(500).json({ error: 'Failed to load new records' });
+    }
+  }
+);
+
 // POST /api/admin/register-push-token – store Expo push token for suggestion notifications
 router.post(
   '/register-push-token',

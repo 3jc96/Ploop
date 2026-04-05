@@ -37,7 +37,7 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CHART_HEIGHT = 160;
 const BAR_GAP = 4;
 
-type Tab = 'overview' | 'moderation' | 'users' | 'diagnostics' | 'hunt';
+type Tab = 'overview' | 'moderation' | 'users' | 'game' | 'diagnostics' | 'hunt';
 type GroupBy = 'day' | 'week' | 'month';
 type RangePreset = '7d' | '30d' | '90d';
 
@@ -168,6 +168,14 @@ export default function AdminScreen() {
   const [usersSearchInput, setUsersSearchInput] = useState('');
   const [exportingCsv, setExportingCsv] = useState(false);
   const USERS_PAGE_SIZE = 50;
+
+  // Game tab — new global high scores (for emailing players)
+  const [gameRecords, setGameRecords] = useState<any[]>([]);
+  const [gameTotal, setGameTotal] = useState(0);
+  const [gameOffset, setGameOffset] = useState(0);
+  const [gameSignedInOnly, setGameSignedInOnly] = useState(false);
+  const [exportingGameCsv, setExportingGameCsv] = useState(false);
+  const GAME_PAGE_SIZE = 50;
 
   // Hunt tab
   const [huntData, setHuntData] = useState<any>(null);
@@ -324,6 +332,47 @@ export default function AdminScreen() {
     }
   }, [usersSearch]);
 
+  const loadGameRecords = useCallback(async (append = false) => {
+    if (!isAdmin) return;
+    const offset = append ? gameOffset : 0;
+    try {
+      const data = await api.admin.getPoopGameNewRecords({
+        limit: GAME_PAGE_SIZE,
+        offset,
+        signedInOnly: gameSignedInOnly,
+      });
+      if (append) {
+        setGameRecords((prev) => [...prev, ...(data.records || [])]);
+      } else {
+        setGameRecords(data.records || []);
+      }
+      setGameTotal(data.total);
+      setGameOffset(append ? offset + (data.records?.length ?? 0) : data.records?.length ?? 0);
+    } catch (e) {
+      console.error(e);
+      if (!append) setGameRecords([]);
+    }
+  }, [isAdmin, gameOffset, gameSignedInOnly]);
+
+  const handleExportGameCsv = useCallback(async () => {
+    setExportingGameCsv(true);
+    try {
+      const csv = await api.admin.getPoopGameNewRecordsCsv(gameSignedInOnly);
+      const filename = `ploop-new-highscores-${new Date().toISOString().slice(0, 10)}.csv`;
+      const fileUri = `${FileSystem.cacheDirectory}${filename}`;
+      await FileSystem.writeAsStringAsync(fileUri, csv, { encoding: FileSystem.EncodingType.UTF8 });
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(fileUri, { mimeType: 'text/csv', UTI: 'public.comma-separated-values-text' });
+      } else {
+        Alert.alert('Exported', `CSV saved to ${fileUri}`);
+      }
+    } catch (e: any) {
+      showAlert('Export failed', getErrorMessage(e, 'Could not export'));
+    } finally {
+      setExportingGameCsv(false);
+    }
+  }, [gameSignedInOnly]);
+
   const loadHuntDashboard = useCallback(async () => {
     setHuntLoading(true);
     try {
@@ -377,12 +426,15 @@ export default function AdminScreen() {
     if (tab === 'users') {
       tasks.push(loadUsers());
     }
+    if (tab === 'game') {
+      tasks.push(loadGameRecords());
+    }
     if (tab === 'hunt') {
       tasks.push(loadHuntDashboard());
     }
     await Promise.all(tasks);
     setRefreshing(false);
-  }, [loadDashboard, loadReviews, loadDiagnostics, loadCrashReports, loadUsers, loadHuntDashboard, tab]);
+  }, [loadDashboard, loadReviews, loadDiagnostics, loadCrashReports, loadUsers, loadGameRecords, loadHuntDashboard, tab]);
 
   useEffect(() => {
     if (!isAdmin) return;
@@ -407,6 +459,12 @@ export default function AdminScreen() {
     setUsersOffset(0);
     loadUsers();
   }, [isAdmin, tab, usersSearch]);
+
+  useEffect(() => {
+    if (!isAdmin || tab !== 'game') return;
+    setGameOffset(0);
+    loadGameRecords();
+  }, [isAdmin, tab, gameSignedInOnly]);
 
   useEffect(() => {
     if (!isAdmin || tab !== 'hunt') return;
@@ -662,6 +720,12 @@ export default function AdminScreen() {
           onPress={() => setTab('users')}
         >
           <Text style={[styles.tabText, tab === 'users' && styles.tabTextActive]}>Users</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tab, tab === 'game' && styles.tabActive]}
+          onPress={() => setTab('game')}
+        >
+          <Text style={[styles.tabText, tab === 'game' && styles.tabTextActive]}>Game</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.tab, tab === 'diagnostics' && styles.tabActive]}
@@ -1028,6 +1092,58 @@ export default function AdminScreen() {
             {usersList.length < usersTotal && (
               <TouchableOpacity style={styles.loadMoreBtn} onPress={() => loadUsers(true)}>
                 <Text style={styles.loadMoreBtnText}>Load more ({usersTotal - usersList.length} remaining)</Text>
+              </TouchableOpacity>
+            )}
+          </>
+        )}
+
+        {tab === 'game' && (
+          <>
+            <Text style={styles.sectionTitle}>New global highs</Text>
+            <Text style={styles.hintText}>
+              Each entry is a submission that beat every prior score at that time. Signed-in rows include account email for outreach. Monthly reset clears old scores from the server.
+            </Text>
+            <View style={styles.gameFilterRow}>
+              <Text style={styles.gameFilterLabel}>Signed in only (has email)</Text>
+              <Switch value={gameSignedInOnly} onValueChange={setGameSignedInOnly} trackColor={{ false: '#cbd5e1', true: '#a5b4fc' }} thumbColor={gameSignedInOnly ? '#6366f1' : '#f1f5f9'} />
+            </View>
+            <View style={styles.usersHeaderRow}>
+              <Text style={styles.usersCount}>{gameTotal} record{gameTotal !== 1 ? 's' : ''}</Text>
+              <TouchableOpacity
+                style={[styles.csvBtn, exportingGameCsv && { opacity: 0.6 }]}
+                onPress={handleExportGameCsv}
+                disabled={exportingGameCsv}
+              >
+                {exportingGameCsv ? (
+                  <ActivityIndicator size="small" color="#6366f1" />
+                ) : (
+                  <Text style={styles.csvBtnText}>Export CSV</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+            {gameRecords.length === 0 ? (
+              <Text style={styles.empty}>No records</Text>
+            ) : (
+              gameRecords.map((r: any) => (
+                <View key={r.id} style={styles.userCard}>
+                  <View style={styles.userCardTop}>
+                    <View style={styles.userInfo}>
+                      <Text style={styles.userName}>Score {r.score}</Text>
+                      <Text style={styles.userEmail} numberOfLines={2}>
+                        {r.user_email || '— guest (no account email)'}
+                      </Text>
+                    </View>
+                  </View>
+                  <Text style={styles.gameMetaLine}>
+                    Game name: {r.display_name || '—'} · Account: {r.account_display_name || '—'}
+                  </Text>
+                  <Text style={styles.userMeta}>{new Date(r.created_at).toLocaleString()}</Text>
+                </View>
+              ))
+            )}
+            {gameRecords.length < gameTotal && (
+              <TouchableOpacity style={styles.loadMoreBtn} onPress={() => loadGameRecords(true)}>
+                <Text style={styles.loadMoreBtnText}>Load more ({gameTotal - gameRecords.length} remaining)</Text>
               </TouchableOpacity>
             )}
           </>
@@ -1660,6 +1776,15 @@ const styles = StyleSheet.create({
   adminBadgeText: { fontSize: 11, fontWeight: '700', color: '#dc2626' },
   userCardBottom: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 },
   userMeta: { fontSize: 12, color: '#94a3b8' },
+  gameFilterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+    paddingVertical: 4,
+  },
+  gameFilterLabel: { fontSize: 14, color: '#475569', fontWeight: '600', flex: 1, paddingRight: 12 },
+  gameMetaLine: { fontSize: 12, color: '#64748b', marginTop: 6, marginBottom: 4 },
 
   // Hunt tab
   huntBanner: { backgroundColor: '#1a1a2e', borderRadius: 12, padding: 16, marginBottom: 12 },

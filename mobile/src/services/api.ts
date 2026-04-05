@@ -417,6 +417,41 @@ export const api = {
       const response = await httpClient.get(API_ENDPOINTS.adminUsers, { params, headers: auth, responseType: 'text' });
       return response.data as unknown as string;
     },
+    getPoopGameNewRecords: async (params?: {
+      limit?: number;
+      offset?: number;
+      signedInOnly?: boolean;
+    }): Promise<{
+      description: string;
+      total: number;
+      records: Array<{
+        id: string;
+        score: number;
+        display_name: string | null;
+        created_at: string;
+        user_id: string | null;
+        device_id: string | null;
+        user_email: string | null;
+        account_display_name: string | null;
+      }>;
+    }> => {
+      const auth = await api.getAuthHeaders();
+      const q: any = { limit: params?.limit ?? 100, offset: params?.offset ?? 0 };
+      if (params?.signedInOnly) q.signedInOnly = '1';
+      const response = await httpClient.get(API_ENDPOINTS.adminPoopGameNewRecords, { params: q, headers: auth });
+      return response.data;
+    },
+    getPoopGameNewRecordsCsv: async (signedInOnly?: boolean): Promise<string> => {
+      const auth = await api.getAuthHeaders();
+      const params: any = { format: 'csv', limit: 500 };
+      if (signedInOnly) params.signedInOnly = '1';
+      const response = await httpClient.get(API_ENDPOINTS.adminPoopGameNewRecords, {
+        params,
+        headers: auth,
+        responseType: 'text',
+      });
+      return response.data as unknown as string;
+    },
   },
 
   // Submit suggestion (40 chars max, sent to admin email + push)
