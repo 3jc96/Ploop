@@ -3,7 +3,7 @@
     "name": "Ploop",
     "slug": "ploop",
     "scheme": "ploop",
-    "version": "1.2.21",
+    "version": "1.2.22",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -20,7 +20,7 @@
     },
     "ios": {
       "supportsTablet": true,
-      "buildNumber": "62",
+      "buildNumber": "64",
       "bundleIdentifier": "com.ploop.app",
       "config": {
         "googleMapsApiKey": "AIzaSyCLKBC2IeU1rQVSdhSZBCfDu984LcwiSXg"
@@ -38,7 +38,7 @@
     },
     "android": {
       "package": "com.ploop.app",
-      "versionCode": 59,
+      "versionCode": 60,
       "adaptiveIcon": {
         "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#ffffff"
