@@ -20,6 +20,7 @@ import { MapProvider } from './src/context/MapProviderContext';
 import { WebAuthRedirectHandler } from './src/WebAuthRedirectHandler';
 
 import HuntModal from './src/components/HuntModal';
+import { OnboardingModal } from './src/components/OnboardingModal';
 import LoginScreenWrapper from './src/screens/LoginScreenWrapper';
 import RedirectScreen from './src/screens/RedirectScreen';
 import PoopGameEntry from './src/screens/PoopGameEntry';
@@ -105,6 +106,7 @@ export default function App() {
           <AuthProvider>
           <WebAuthRedirectHandler />
           <HuntModal />
+          <OnboardingModal />
           <NavigationContainer linking={linking}>
             <Stack.Navigator
               initialRouteName="Map"

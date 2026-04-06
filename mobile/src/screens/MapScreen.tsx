@@ -22,7 +22,7 @@ import {
 import { openInMapsWithChoice } from '../utils/maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import PloopMapView, { PloopMarker, PloopPolyline } from '../components/PloopMapView';
-import { useMapProvider } from '../context/MapProviderContext';
+import { useMapProvider, isInChina, isAmapUnavailable } from '../context/MapProviderContext';
 import * as Location from 'expo-location';
 import * as Haptics from 'expo-haptics';
 import { api, DirectionStep, Toilet } from '../services/api';
@@ -597,7 +597,7 @@ const MapScreen: React.FC = () => {
   const fetchNearbyToilets = useCallback(
     async (coords: { latitude: number; longitude: number }) => {
       const cacheKey = `cache.nearbyToilets.v2.${filterWheelchairOnly ? 1 : 0}.${filterFreeOnly ? 1 : 0}.${filterBidetOnly ? 1 : 0}.${minConfidence}.${mapProvider}`;
-      const mergeWithGaode = mapProvider === 'amap';
+      const mergeWithGaode = !isAmapUnavailable() && isInChina(coords.latitude, coords.longitude);
 
       const mergeAndSort = (backendToilets: Toilet[], gaodeToilets: Toilet[]): Toilet[] => {
         const DEDUPE_METERS = 40;

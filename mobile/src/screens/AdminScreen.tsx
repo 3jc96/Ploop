@@ -22,6 +22,7 @@ import * as Sharing from 'expo-sharing';
 import * as Notifications from 'expo-notifications';
 import { useNavigation, CommonActions } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
+import { useMapProvider } from '../context/MapProviderContext';
 import { api } from '../services/api';
 import { getErrorMessage } from '../utils/engagement';
 import { confirmAsync, showAlert } from '../utils/alert';
@@ -196,6 +197,7 @@ export default function AdminScreen() {
   const [biometricAvailable, setBiometricAvailable] = useState(false);
 
   const isAdmin = user?.role === 'admin';
+  const { simulateChinaLocation, setSimulateChinaLocation } = useMapProvider();
 
   const goBack = useCallback(() => {
     const nav = navigation as any;
@@ -1203,6 +1205,15 @@ export default function AdminScreen() {
             ) : (
               <Text style={styles.empty}>No crash reports</Text>
             )}
+
+            <Text style={[styles.sectionTitle, { marginTop: 24 }]}>Dev tools</Text>
+            <View style={styles.sectionRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 14, fontWeight: '600', color: '#0f172a' }}>Simulate China location</Text>
+                <Text style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>Spoofs GPS to Beijing — forces Gaode map + POI for testing.</Text>
+              </View>
+              <Switch value={simulateChinaLocation} onValueChange={setSimulateChinaLocation} />
+            </View>
           </>
         )}
 
