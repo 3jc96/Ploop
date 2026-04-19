@@ -17,8 +17,20 @@ interface State {
 
 function isGaodeModuleError(error: Error | null): boolean {
   if (!error) return false;
-  const msg = error?.message ?? '';
-  return msg.includes('NATIVE_MODULE_UNAVAILABLE') || msg.includes('高德地图错误');
+  const msg = (error?.message ?? '') + (error?.stack ?? '');
+  // Catch any native module / Amap SDK error so the map always has a Google fallback.
+  return (
+    msg.includes('NATIVE_MODULE_UNAVAILABLE') ||
+    msg.includes('高德地图错误') ||
+    msg.includes('ExpoGaodeMap') ||
+    msg.includes('AMapModule') ||
+    msg.includes('expo-gaode-map') ||
+    // Generic "null/undefined is not an object" from uninitialised native modules
+    /null is not an object.*Expo/i.test(msg) ||
+    /undefined is not an object.*Expo/i.test(msg) ||
+    msg.includes('NativeModule') ||
+    msg.includes('native module')
+  );
 }
 
 export class AmapErrorBoundary extends Component<Props, State> {

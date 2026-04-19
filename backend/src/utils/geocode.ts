@@ -73,6 +73,8 @@ const CITY_TIMEZONE: Record<string, string> = {
   toronto: 'America/Toronto',
   melbourne: 'Australia/Melbourne',
   bangkok: 'Asia/Bangkok',
+  dallas: 'America/Chicago',
+  'fort worth': 'America/Chicago',
   'kuala lumpur': 'Asia/Kuala_Lumpur',
   jakarta: 'Asia/Jakarta',
   manila: 'Asia/Manila',

@@ -259,26 +259,37 @@ router.get(
       }
       const { city: cityParam, latitude, longitude, timezone: tzParam } = req.query as any;
 
+      const latNum =
+        latitude != null && latitude !== '' && !Number.isNaN(parseFloat(latitude)) ? parseFloat(latitude) : null;
+      const lngNum =
+        longitude != null && longitude !== '' && !Number.isNaN(parseFloat(longitude)) ? parseFloat(longitude) : null;
+
       let city: string | null = cityParam?.trim() || null;
       let timezone = tzParam?.trim() || 'UTC';
 
-      if (!city && latitude != null && longitude != null) {
-        const geo = await reverseGeocode(parseFloat(latitude), parseFloat(longitude));
+      if (!city && latNum != null && lngNum != null) {
+        const geo = await reverseGeocode(latNum, lngNum);
         city = geo.city;
         if (city && !tzParam) timezone = getTimezoneForCity(city);
       }
 
-      if (!city) {
+      // Without GOOGLE_PLACES_API_KEY, reverseGeocode returns no city — still allow geo-based super toilet.
+      if (!city && (latNum == null || lngNum == null)) {
         return res.status(400).json({ error: 'Provide city or latitude+longitude to determine region' });
       }
 
       const dateStr = getDateInTimezone(timezone);
-      const seed = simpleHash(`${city.toLowerCase()}:${dateStr}`);
+      const regionLabel = city || 'Nearby';
+      const seedKey = city
+        ? `${city.toLowerCase()}:${dateStr}`
+        : `near:${latNum!.toFixed(3)},${lngNum!.toFixed(3)}:${dateStr}`;
+      const seed = simpleHash(seedKey);
 
-      let result;
-      try {
-        result = await pool.query(
-        `
+      let result: { rows: any[] } = { rows: [] };
+      if (city) {
+        try {
+          result = await pool.query(
+            `
         SELECT
           t.*,
           COALESCE(rp.active_reports, 0) as active_reports,
@@ -304,13 +315,14 @@ router.get(
           AND COALESCE(t.total_reviews, 0) >= $3
           AND COALESCE(rp.active_reports, 0) = 0
         `,
-        [city, `%${city}%`, SUPER_TOILET_MIN_REVIEWS]
-      );
-      } catch (e: any) {
-        if (e?.code === '42703') {
-          return res.status(404).json({ error: 'Super toilet feature requires database migration (city column)' });
+            [city, `%${city}%`, SUPER_TOILET_MIN_REVIEWS]
+          );
+        } catch (e: any) {
+          if (e?.code === '42703') {
+            return res.status(404).json({ error: 'Super toilet feature requires database migration (city column)' });
+          }
+          throw e;
         }
-        throw e;
       }
 
       const mapRow = (row: any) => {
@@ -332,8 +344,8 @@ router.get(
         .filter((t: any) => (t.confidence_score || 0) >= SUPER_TOILET_MIN_CONFIDENCE)
         .sort((a: any, b: any) => (b.confidence_score || 0) - (a.confidence_score || 0));
 
-      // Fallback: relax to any reviewed, no-active-reports toilet near the coordinates
-      if (toilets.length === 0 && latitude != null && longitude != null) {
+      // Fallback: relax to any reviewed, no-active-reports toilet near the coordinates (also used when city is unknown)
+      if (toilets.length === 0 && latNum != null && lngNum != null) {
         const fallbackResult = await pool.query(
           `
           SELECT
@@ -363,7 +375,7 @@ router.get(
           ORDER BY (COALESCE(t.cleanliness_score, 0) + COALESCE(t.smell_score, 0)) DESC
           LIMIT 20
           `,
-          [parseFloat(longitude), parseFloat(latitude)]
+          [lngNum, latNum]
         );
         toilets = fallbackResult.rows.map(mapRow)
           .filter((t: any) => (t.confidence_score || 0) >= 40)
@@ -381,7 +393,7 @@ router.get(
 
       res.json({
         toilet: chosen,
-        region: city,
+        region: regionLabel,
         date: dateStr,
       });
     } catch (error) {

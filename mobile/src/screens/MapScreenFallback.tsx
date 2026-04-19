@@ -5,6 +5,7 @@
  */
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  ActivityIndicator,
   FlatList,
   Pressable,
   RefreshControl,
@@ -19,11 +20,9 @@ import { api, Toilet } from '../services/api';
 import { getErrorMessage, hapticButton, getOxymoronicTagline } from '../utils/engagement';
 import { openInMapsWithChoice } from '../utils/maps';
 
-const DEFAULT_COORDS = { latitude: 37.7749, longitude: -122.4194 };
-
 export default function MapScreenFallback() {
   const [coords, setCoords] = useState<{ latitude: number; longitude: number } | null>(null);
-  const [usedDefaultLocation, setUsedDefaultLocation] = useState(false);
+  const [needsLocation, setNeedsLocation] = useState(false);
   const [toilets, setToilets] = useState<Toilet[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
@@ -62,9 +61,9 @@ export default function MapScreenFallback() {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
-        setCoords(DEFAULT_COORDS);
-        setUsedDefaultLocation(true);
-        await fetchNearby(DEFAULT_COORDS);
+        setCoords(null);
+        setNeedsLocation(true);
+        setToilets([]);
         return;
       }
       const pos = await Location.getCurrentPositionAsync({
@@ -72,12 +71,14 @@ export default function MapScreenFallback() {
       });
       const c = { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
       setCoords(c);
-      setUsedDefaultLocation(false);
+      setNeedsLocation(false);
       await fetchNearby(c);
     } catch {
-      setCoords(DEFAULT_COORDS);
-      setUsedDefaultLocation(true);
-      await fetchNearby(DEFAULT_COORDS);
+      setCoords(null);
+      setNeedsLocation(true);
+      setToilets([]);
+    } finally {
+      setLoading(false);
     }
   }, [fetchNearby]);
 
@@ -92,18 +93,20 @@ export default function MapScreenFallback() {
           if (cancelled) return;
           const c = { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
           setCoords(c);
-          setUsedDefaultLocation(false);
+          setNeedsLocation(false);
           await fetchNearby(c);
           return;
         }
-        setCoords(DEFAULT_COORDS);
-        setUsedDefaultLocation(true);
-        await fetchNearby(DEFAULT_COORDS);
+        setCoords(null);
+        setNeedsLocation(true);
+        setToilets([]);
       } catch {
         if (cancelled) return;
-        setCoords(DEFAULT_COORDS);
-        setUsedDefaultLocation(true);
-        await fetchNearby(DEFAULT_COORDS);
+        setCoords(null);
+        setNeedsLocation(true);
+        setToilets([]);
+      } finally {
+        if (!cancelled) setLoading(false);
       }
     })();
     return () => {
@@ -176,9 +179,9 @@ export default function MapScreenFallback() {
           List view (Expo Go). For the full map, run: npx expo run:ios
         </Text>
       </View>
-      {usedDefaultLocation && (
+      {needsLocation && (
         <View style={styles.defaultBanner}>
-          <Text style={styles.defaultBannerText}>Using default location</Text>
+          <Text style={styles.defaultBannerText}>Location needed to load nearby toilets</Text>
           <Pressable onPress={tryUserLocation} style={styles.useLocationBtn}>
             <Text style={styles.useLocationBtnText}>Use my location</Text>
           </Pressable>
@@ -221,15 +224,26 @@ export default function MapScreenFallback() {
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <Text style={styles.emptyEmoji}>📍</Text>
-              <Text style={styles.emptyTitle}>No toilets nearby yet</Text>
-              <Text style={styles.emptySub}>Be the first to add one — you’ll help everyone out.</Text>
-              <Text style={styles.emptyTagline}>{getOxymoronicTagline()}</Text>
-              <Pressable
-                onPress={onPressAddToilet}
-                style={({ pressed }) => [styles.emptyButton, pressed && styles.addBtnPressed]}
-              >
-                <Text style={styles.emptyButtonText}>Add the first toilet</Text>
-              </Pressable>
+              {needsLocation ? (
+                <>
+                  <Text style={styles.emptyTitle}>Location not available</Text>
+                  <Text style={styles.emptySub}>
+                    Allow location for Ploop, or tap “Use my location” above, to see toilets near you.
+                  </Text>
+                </>
+              ) : (
+                <>
+                  <Text style={styles.emptyTitle}>No toilets nearby yet</Text>
+                  <Text style={styles.emptySub}>Be the first to add one — you’ll help everyone out.</Text>
+                  <Text style={styles.emptyTagline}>{getOxymoronicTagline()}</Text>
+                  <Pressable
+                    onPress={onPressAddToilet}
+                    style={({ pressed }) => [styles.emptyButton, pressed && styles.addBtnPressed]}
+                  >
+                    <Text style={styles.emptyButtonText}>Add the first toilet</Text>
+                  </Pressable>
+                </>
+              )}
             </View>
           }
         />

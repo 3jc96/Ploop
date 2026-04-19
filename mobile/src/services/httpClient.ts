@@ -111,6 +111,11 @@ function createClient(): AxiosInstance {
         // 404 on by-place is expected (place not in DB yet) – don't log as error
         if (status === 404 && url.includes('/by-place/')) {
           console.log(`[Ploop HTTP] 404 (not in DB) ${url} [${reqId}]`);
+        } else if (
+          (status === 400 || status === 404) &&
+          url.includes('/super-toilet-of-the-day')
+        ) {
+          console.log(`[Ploop HTTP] ${status} (optional super toilet) ${url} [${reqId}]`);
         } else if (!error.response && (url.includes('/diagnostics') || url.includes('/crash-reports'))) {
           // Diagnostics/crash-reports are optional – log as warn when backend unreachable
           console.warn(`[Ploop HTTP] Optional request failed (backend unreachable): ${fullUrl} [${reqId}]`);

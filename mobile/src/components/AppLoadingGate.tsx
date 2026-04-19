@@ -29,8 +29,6 @@ const LOCATION_TIMEOUT_MS = 6000;
 const MIN_LOADING_AFTER_COORDS_MS = 900;
 /** Cap splash after coords (~4s max) while toilets load */
 const MAX_LOADING_AFTER_COORDS_MS = 3800;
-// Fallback when getLastKnownPositionAsync returns null (common on Android) – show map fast, refetch when GPS locks
-const FALLBACK_COORDS = { latitude: 37.7749, longitude: -122.4194 };
 const LAST_COORDS_KEY = 'ploop.lastKnownCoords';
 
 function metersBetween(
@@ -200,9 +198,11 @@ async function waitForToiletsWithSplashBudget(
 
 export function AppLoadingGate({ children }: { children: React.ReactNode }) {
   const { t, locale, localeStatus, setLocale } = useLanguage();
-  const { provider: mapProvider, simulateChinaLocation, BEIJING_COORDS } = useMapProvider();
+  const { provider: mapProvider, simulateChinaLocation, BEIJING_COORDS, notifyLocation } = useMapProvider();
   const [tagline] = useState(() => getOxymoronicTagline());
-  const [loadStatus, setLoadStatus] = useState<'loading' | 'ready' | 'failed' | 'denied'>('loading');
+  const [loadStatus, setLoadStatus] = useState<
+    'loading' | 'ready' | 'failed' | 'denied' | 'location_unavailable'
+  >('loading');
   const [loadAttempts, setLoadAttempts] = useState(0);
   const [loadProgress, setLoadProgress] = useState(0);
   const [preloadData, setPreloadData] = useState<MapPreloadData | null>(null);
@@ -260,7 +260,8 @@ export function AppLoadingGate({ children }: { children: React.ReactNode }) {
 
         startLocationPhase();
         let coords: { latitude: number; longitude: number } | null = null;
-        let locationSource: 'lastKnown' | 'currentPosition' | 'timeout' = 'currentPosition';
+        let preliminary = false;
+        let locationDoneReason: 'lastKnown' | 'currentPosition' | 'timeout' = 'timeout';
         // Android: use longer maxAge to increase cache hit (getLastKnown often null on Android)
         const lastKnownMaxAge = Platform.OS === 'android' ? 300000 : 60000; // 5 min vs 1 min
         try {
@@ -270,53 +271,52 @@ export function AppLoadingGate({ children }: { children: React.ReactNode }) {
               latitude: lastKnown.coords.latitude,
               longitude: lastKnown.coords.longitude,
             };
-            locationSource = 'lastKnown';
+            locationDoneReason = 'lastKnown';
             saveLastCoords(coords);
           }
         } catch {
           // ignore
         }
-        let preliminary = false;
         if (!coords) {
-          // Android: when lastKnown is null, don't block 5–10s. Use last-cached or fallback coords, show map fast, refetch when GPS locks.
-          if (Platform.OS === 'android') {
-            const cachedCoords = await loadLastCoords();
-            coords = cachedCoords ?? FALLBACK_COORDS;
+          const cachedCoords = await loadLastCoords();
+          if (cachedCoords) {
+            coords = cachedCoords;
             preliminary = true;
-            markLocationDone('timeout'); // we're not waiting for GPS
-          } else {
-            const accuracy = Location.Accuracy.Balanced;
-            try {
-              const pos = await Promise.race([
-                Location.getCurrentPositionAsync({ accuracy }),
-                new Promise<never>((_, reject) =>
-                  setTimeout(() => reject(new Error('timeout')), LOCATION_TIMEOUT_MS)
-                ),
-              ]);
-              if (pos?.coords) {
-                coords = { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
-                locationSource = 'currentPosition';
-                saveLastCoords(coords);
-              }
-            } catch {
-              locationSource = 'timeout';
-              coords = FALLBACK_COORDS;
-              preliminary = true;
-            }
-            markLocationDone(locationSource);
+            locationDoneReason = 'timeout';
           }
-        } else {
-          markLocationDone(locationSource);
+        }
+        if (!coords) {
+          const accuracy = Platform.OS === 'android' ? Location.Accuracy.Low : Location.Accuracy.Balanced;
+          try {
+            const pos = await Promise.race([
+              Location.getCurrentPositionAsync({ accuracy }),
+              new Promise<never>((_, reject) =>
+                setTimeout(() => reject(new Error('timeout')), LOCATION_TIMEOUT_MS)
+              ),
+            ]);
+            if (pos?.coords) {
+              coords = { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
+              preliminary = false;
+              locationDoneReason = 'currentPosition';
+              saveLastCoords(coords);
+            }
+          } catch {
+            // still no coords
+          }
         }
 
         if (isStale()) return;
         if (!coords) {
-          setLoadStatus('denied');
+          markLocationDone('timeout');
+          setLoadStatus('location_unavailable');
           setPreloadData(null);
-          const diag = finishLoadDiagnostics(false);
+          const diag = finishLoadDiagnostics(true);
           sendLoadDiagnosticsToBackend(diag);
           return;
         }
+
+        markLocationDone(locationDoneReason);
+        notifyLocation(coords.latitude, coords.longitude);
 
         const mergeWithGaode = mapProvider === 'amap';
         if (!isStale()) setLoadProgress(45);
@@ -350,7 +350,7 @@ export function AppLoadingGate({ children }: { children: React.ReactNode }) {
     } finally {
       // no-op
     }
-  }, [simulateChinaLocation, BEIJING_COORDS, mapProvider]);
+  }, [simulateChinaLocation, BEIJING_COORDS, mapProvider, notifyLocation]);
 
   useEffect(() => {
     runFullLoad();
@@ -360,7 +360,9 @@ export function AppLoadingGate({ children }: { children: React.ReactNode }) {
   }, [runFullLoad]);
 
   const allReady =
-    (loadStatus === 'ready' || loadStatus === 'denied') &&
+    (loadStatus === 'ready' ||
+      loadStatus === 'denied' ||
+      loadStatus === 'location_unavailable') &&
     localeStatus !== 'needsPick';
 
   if (allReady) {

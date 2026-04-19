@@ -8,18 +8,46 @@
  *   npx ts-node scripts/import-toilets-to-render.ts
  *
  * Get TARGET_DATABASE_URL from Render Dashboard → ploop-db → Connection String (External).
+ *
+ * Loads backend/.env so you can set SOURCE_DATABASE_URL / TARGET_DATABASE_URL there (gitignored).
+ * Passwords with @ must be URL-encoded (@ → %40) or the host may parse as "base" → ENOTFOUND.
  */
 
+import path from 'path';
 import { Pool } from 'pg';
+import dotenv from 'dotenv';
+
+dotenv.config({ path: path.join(__dirname, '../.env') });
 
 const SOURCE = process.env.SOURCE_DATABASE_URL;
 const TARGET = process.env.TARGET_DATABASE_URL;
 
+function explainBadPostgresUrl(label: string, url: string): void {
+  try {
+    const normalized = url.trim().replace(/^postgresql:/i, 'postgres:');
+    const u = new URL(normalized);
+    // Mis-parsed URL often yields hostname "base" when password contains unescaped @
+    if (u.hostname === 'base') {
+      console.error(`\n[${label}] Connection URL parses host as "base" — almost always a bad URL.`);
+      console.error('  • If your password contains @, #, :, encode it (e.g. @ → %40).');
+      console.error('  • Quote the whole URL when exporting: export TARGET_DATABASE_URL=\'postgres://...\'');
+      console.error('  • Render external host should look like: dpg-xxxxx.REGION-postgres.render.com\n');
+      process.exit(1);
+    }
+  } catch {
+    // ignore parse errors; pg will fail with a clearer message
+  }
+}
+
 if (!SOURCE || !TARGET) {
-  console.error('Usage: SOURCE_DATABASE_URL=... TARGET_DATABASE_URL=... npx ts-node scripts/import-toilets-to-render.ts');
-  console.error('Get TARGET_DATABASE_URL from Render → ploop-db → Connection String (External)');
+  console.error('Usage: SOURCE_DATABASE_URL=... TARGET_DATABASE_URL=... npm run import-toilets');
+  console.error('Or set both in backend/.env (see IMPORT_TOILETS_TO_RENDER.md)');
+  console.error('Get TARGET_DATABASE_URL from Render → ploop-db → External Database URL');
   process.exit(1);
 }
+
+explainBadPostgresUrl('SOURCE_DATABASE_URL', SOURCE);
+explainBadPostgresUrl('TARGET_DATABASE_URL', TARGET);
 
 const sourcePool = new Pool({ connectionString: SOURCE });
 const targetPool = new Pool({

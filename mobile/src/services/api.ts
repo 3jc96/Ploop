@@ -32,6 +32,7 @@ export interface Toilet {
   last_serviced_at?: string;
   active_reports?: number;
   report_summary?: Array<{ type: string; note?: string | null; created_at: string; expires_at: string }>;
+  notes?: string;
 }
 
 export interface CreateToiletData {

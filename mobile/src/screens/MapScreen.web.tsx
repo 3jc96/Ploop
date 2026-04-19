@@ -11,10 +11,6 @@ import { openInMapsWithChoice } from '../utils/maps';
 
 type Coords = { latitude: number; longitude: number };
 
-// Default when location is denied or unavailable (San Francisco)
-const DEFAULT_COORDS: Coords = { latitude: 37.7749, longitude: -122.4194 };
-const DEFAULT_LABEL = 'San Francisco';
-
 const MAP_WRAPPER_HEIGHT = 420;
 const MAP_CONTAINER_STYLE = { width: '100%', height: '100%', minHeight: MAP_WRAPPER_HEIGHT };
 
@@ -22,8 +18,9 @@ export default function MapScreenWeb() {
   const navigation = useNavigation();
   const { user } = useAuth();
   const preload = useMapPreload();
-  const [coords, setCoords] = useState<Coords | null>(DEFAULT_COORDS);
-  const [usedDefaultLocation, setUsedDefaultLocation] = useState(false);
+  const [coords, setCoords] = useState<Coords | null>(null);
+  /** True when we need the user to grant location or retry (no coordinates to show nearby data). */
+  const [needsLocation, setNeedsLocation] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [toilets, setToilets] = useState<Toilet[]>([]);
   const [loading, setLoading] = useState(true);
@@ -89,9 +86,9 @@ export default function MapScreenWeb() {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
         setLocationError('Location permission was denied. Allow location for this site in your browser (address bar or site settings).');
-        setCoords(DEFAULT_COORDS);
-        setUsedDefaultLocation(true);
-        await fetchNearby(DEFAULT_COORDS);
+        setCoords(null);
+        setNeedsLocation(true);
+        setToilets([]);
         return;
       }
       // Try cached position first (fast; works if user was recently located)
@@ -104,7 +101,7 @@ export default function MapScreenWeb() {
       if (pos && pos.coords) {
         const c = { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
         setCoords(c);
-        setUsedDefaultLocation(false);
+        setNeedsLocation(false);
         setLocationError(null);
         await fetchNearby(c);
         setLoading(false);
@@ -121,7 +118,7 @@ export default function MapScreenWeb() {
       if (pos && pos.coords) {
         const c = { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
         setCoords(c);
-        setUsedDefaultLocation(false);
+        setNeedsLocation(false);
         setLocationError(null);
         await fetchNearby(c);
       } else {
@@ -130,9 +127,9 @@ export default function MapScreenWeb() {
     } catch (e: any) {
       const msg = e?.message || 'Could not get your location.';
       setLocationError(msg);
-      setCoords(DEFAULT_COORDS);
-      setUsedDefaultLocation(true);
-      await fetchNearby(DEFAULT_COORDS);
+      setCoords(null);
+      setNeedsLocation(true);
+      setToilets([]);
     } finally {
       setLoading(false);
     }
@@ -148,7 +145,7 @@ export default function MapScreenWeb() {
       setCoords(c);
       setToilets(preload.toilets);
       setLoading(false);
-      setUsedDefaultLocation(false);
+      setNeedsLocation(false);
       setLocationError(null);
       // Web has no useFocusEffect refetch: if gate timed out before API, load pins now
       if (
@@ -160,12 +157,6 @@ export default function MapScreenWeb() {
       }
     }
   }, [preload, fetchNearby]);
-
-  // Fetch toilets for default coords immediately so map shows something fast (don't wait for location)
-  useEffect(() => {
-    if (preload) return;
-    fetchNearby(DEFAULT_COORDS).catch(() => {});
-  }, [fetchNearby, preload]);
 
   useEffect(() => {
     if (preload) return;
@@ -184,7 +175,7 @@ export default function MapScreenWeb() {
           if (pos?.coords && !cancelled) {
             const c = { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
             setCoords(c);
-            setUsedDefaultLocation(false);
+            setNeedsLocation(false);
             setLocationError(null);
             await fetchNearby(c);
             return;
@@ -200,28 +191,30 @@ export default function MapScreenWeb() {
           if (pos?.coords) {
             const c = { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
             setCoords(c);
-            setUsedDefaultLocation(false);
+            setNeedsLocation(false);
             setLocationError(null);
             await fetchNearby(c);
             return;
           }
         }
-        setCoords(DEFAULT_COORDS);
-        setUsedDefaultLocation(true);
-        setLocationError(status === 'denied' ? 'Location permission denied.' : null);
-        await fetchNearby(DEFAULT_COORDS);
+        setCoords(null);
+        setNeedsLocation(true);
+        setLocationError(status === 'denied' ? 'Location permission denied.' : 'Could not get your location.');
+        setToilets([]);
       } catch (e: any) {
         if (cancelled) return;
         setLocationError(e?.message || 'Location unavailable.');
-        setCoords(DEFAULT_COORDS);
-        setUsedDefaultLocation(true);
-        await fetchNearby(DEFAULT_COORDS);
+        setCoords(null);
+        setNeedsLocation(true);
+        setToilets([]);
+      } finally {
+        if (!cancelled) setLoading(false);
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [fetchNearby]);
+  }, [fetchNearby, preload]);
 
   const filtered = useMemo(() => toilets, [toilets]);
 
@@ -374,18 +367,18 @@ export default function MapScreenWeb() {
           </View>
           <Text style={styles.bannerText}>
             {coords
-              ? usedDefaultLocation
-                ? `Showing toilets near ${DEFAULT_LABEL}. ${locationError || 'Location was denied or unavailable.'}`
-                : `Using your location • ${coords.latitude.toFixed(4)}, ${coords.longitude.toFixed(4)}`
-              : 'Getting your location…'}
+              ? `Using your location • ${coords.latitude.toFixed(4)}, ${coords.longitude.toFixed(4)}`
+              : needsLocation || locationError
+                ? locationError || 'Turn on location to see nearby toilets.'
+                : 'Getting your location…'}
           </Text>
-          {usedDefaultLocation && !loading && (
+          {needsLocation && !loading && (
             <Text style={styles.bannerTip}>
               Click “Use my location” to retry. Allow location for this site (browser address bar or site settings). Chrome on localhost usually works; Safari may require HTTPS.
             </Text>
           )}
         </View>
-        {usedDefaultLocation && !loading && (
+        {needsLocation && !loading && (
           <Pressable
             onPress={tryUserLocation}
             style={({ pressed }) => [styles.bannerBtn, pressed && styles.btnPressed]}
@@ -504,9 +497,11 @@ export default function MapScreenWeb() {
                     ? 'Map failed to load. Check console.'
                     : !googleMapsApiKey
                       ? 'Map unavailable (set EXPO_PUBLIC_GOOGLE_MAPS_API_KEY or add key in app.json extra).'
-                      : !isMapLoaded
+                        : !isMapLoaded
                         ? 'Loading map…'
-                        : 'Getting location…'}
+                        : needsLocation
+                          ? 'Allow location to show the map here.'
+                          : 'Getting location…'}
                 </Text>
               </View>
             )}

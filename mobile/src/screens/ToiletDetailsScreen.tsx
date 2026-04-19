@@ -590,6 +590,11 @@ const loadToilet = async () => {
             </Text>
           </View>
         )}
+        {!!toilet.notes && (
+          <View style={[styles.detailRow, { backgroundColor: '#fff8e1', borderRadius: 8, padding: 8, marginTop: 6 }]}>
+            <Text style={{ fontSize: 13, color: '#7a5c00' }}>{toilet.notes}</Text>
+          </View>
+        )}
       </View>
 
       {toilet.photos && toilet.photos.length > 0 && (

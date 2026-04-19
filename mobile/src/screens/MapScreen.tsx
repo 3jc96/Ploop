@@ -104,7 +104,7 @@ const MapScreen: React.FC = () => {
   const { user } = useAuth();
   const { t, locale, setLocale } = useLanguage();
   const preload = useMapPreload();
-  const { provider: mapProvider, simulateChinaLocation, setSimulateChinaLocation, BEIJING_COORDS } = useMapProvider();
+  const { provider: mapProvider, simulateChinaLocation, setSimulateChinaLocation, BEIJING_COORDS, showChinaMapPrompt, respondToChinaPrompt } = useMapProvider();
   const insets = useSafeAreaInsets();
   const { width, height } = Dimensions.get('window');
   const mapRef = useRef<any>(null);
@@ -508,6 +508,27 @@ const MapScreen: React.FC = () => {
   useEffect(() => {
     routePolylineRef.current = routePolyline;
   }, [routePolyline]);
+
+  // Prompt user to switch to Gaode when China location is first detected
+  useEffect(() => {
+    if (!showChinaMapPrompt) return;
+    Alert.alert(
+      '在中国吗？ / In China?',
+      'Your location appears to be in mainland China.\nSwitch to Gaode Maps for better coverage?\n\n您的位置似乎在中国大陆。\n是否切换到高德地图？',
+      [
+        {
+          text: 'Switch to Gaode / 切换高德',
+          onPress: () => respondToChinaPrompt(true),
+        },
+        {
+          text: 'Keep Google Maps / 保留谷歌',
+          style: 'cancel',
+          onPress: () => respondToChinaPrompt(false),
+        },
+      ],
+      { cancelable: false },
+    );
+  }, [showChinaMapPrompt, respondToChinaPrompt]);
 
   useEffect(() => {
     if (simulateChinaLocation) {

@@ -327,6 +327,16 @@ export async function ensureFeatureTables(): Promise<void> {
   // One-time city name normalization: rename Malay "Singapura" -> "Singapore"
   await safe(`UPDATE toilets SET city = 'Singapore' WHERE city = 'Singapura'`);
 
+  // Notes / disclaimer column: free-text shown to users below the toilet name
+  await safe(`
+    DO $$
+    BEGIN
+      IF to_regclass('public.toilets') IS NOT NULL THEN
+        ALTER TABLE toilets ADD COLUMN IF NOT EXISTS notes text;
+      END IF;
+    END $$;
+  `);
+
   // Per-city pause/end overrides for golden hunts
   await safe(`
     CREATE TABLE IF NOT EXISTS golden_hunt_city_status (
