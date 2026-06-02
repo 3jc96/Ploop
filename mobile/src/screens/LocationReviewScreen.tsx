@@ -93,7 +93,9 @@ const LocationReviewScreen: React.FC = () => {
       
       // Get location name - prioritize place name from Google
       const locationName = locationDetails?.place?.name || placeName || locationDetails?.location?.address || 'Unknown Location';
-      const locationAddress = locationDetails?.place?.address || placeAddress || locationDetails?.location?.address || '';
+      const rawAddress = locationDetails?.place?.address || placeAddress || locationDetails?.location?.address || '';
+      // Don't store the coordinate fallback string — use empty if no real address was resolved
+      const locationAddress = rawAddress.startsWith('Location at ') ? '' : rawAddress;
       
       // Prefer exact POI mapping when we have a Google placeId.
       let matchedToilet = placeId ? await api.getToiletByPlaceId(placeId) : null;
@@ -518,7 +520,23 @@ const LocationReviewScreen: React.FC = () => {
       <View style={[styles.stickyFooter, { paddingBottom: Math.max(insets.bottom, 12) }]}>
         <TouchableOpacity
           style={[styles.submitButton, submitting && styles.submitButtonDisabled]}
-          onPress={submitReview}
+          onPress={() => {
+            const displayName =
+              locationDetails?.place?.name ||
+              placeName ||
+              (!locationDetails?.location?.address?.startsWith('Location at ')
+                ? locationDetails?.location?.address
+                : null) ||
+              'this location';
+            Alert.alert(
+              'Confirm location',
+              `Submitting review for:\n\n${displayName}\n\nIs this correct?`,
+              [
+                { text: 'No, re-pin', style: 'cancel', onPress: () => (navigation as any).goBack() },
+                { text: 'Yes, submit', onPress: submitReview },
+              ]
+            );
+          }}
           disabled={submitting}
         >
           {submitting ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitButtonText}>Submit Review</Text>}

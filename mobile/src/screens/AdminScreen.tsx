@@ -955,7 +955,15 @@ export default function AdminScreen() {
                     {isExpanded && (
                       <View style={styles.reviewDetails}>
                         <Text style={styles.reviewDetailSection}>Review details</Text>
-                        {r.toilet_address ? (
+                        {r.latitude != null && r.longitude != null ? (
+                          <TouchableOpacity
+                            onPress={() => Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${r.latitude},${r.longitude}`)}
+                          >
+                            <Text style={styles.reviewLocationLink}>
+                              📍 {r.toilet_address && !r.toilet_address.startsWith('Location at ') ? r.toilet_address : `${Number(r.latitude).toFixed(5)}, ${Number(r.longitude).toFixed(5)}`}
+                            </Text>
+                          </TouchableOpacity>
+                        ) : r.toilet_address && !r.toilet_address.startsWith('Location at ') ? (
                           <Text style={styles.reviewDetailRow}>📍 {r.toilet_address}</Text>
                         ) : null}
                         {r.review_text ? (
@@ -973,14 +981,6 @@ export default function AdminScreen() {
                           Toilet: {r.toilet_name} {r.toilet_total_reviews != null ? `(${r.toilet_total_reviews} reviews)` : ''}
                         </Text>
                         <Text style={styles.reviewDetailMuted}>ID: {r.id}</Text>
-                        {r.toilet_id && (r.latitude != null && r.longitude != null) ? (
-                          <TouchableOpacity
-                            style={styles.mapLinkBtn}
-                            onPress={() => Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${r.latitude},${r.longitude}`)}
-                          >
-                            <Text style={styles.mapLinkBtnText}>Open in Maps</Text>
-                          </TouchableOpacity>
-                        ) : null}
                         <Text style={styles.reviewDate}>{new Date(r.reviewed_at).toLocaleString()}</Text>
                       </View>
                     )}
@@ -1659,6 +1659,7 @@ const styles = StyleSheet.create({
   reviewDetails: { backgroundColor: '#f8fafc', padding: 12, borderRadius: 8, marginBottom: 10 },
   reviewDetailSection: { fontSize: 13, fontWeight: '700', color: '#334155', marginBottom: 8 },
   reviewDetailRow: { fontSize: 12, color: '#64748b', marginBottom: 4 },
+  reviewLocationLink: { fontSize: 12, color: '#6366f1', marginBottom: 4, textDecorationLine: 'underline' },
   reviewDetailMuted: { fontSize: 11, color: '#94a3b8', marginBottom: 4 },
   expandIcon: { fontSize: 12, color: '#94a3b8', marginLeft: 8 },
   mapLinkBtn: { alignSelf: 'flex-start', paddingVertical: 6, paddingHorizontal: 12, backgroundColor: '#e0e7ff', borderRadius: 6, marginTop: 6 },

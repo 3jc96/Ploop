@@ -159,7 +159,8 @@ router.get(
       const result = await pool.query(
         `SELECT r.id, r.toilet_id, r.cleanliness_score, r.smell_score, r.review_text, r.reviewed_at, r.reviewed_by, r.user_id,
                 u.email AS user_email, u.display_name AS user_display_name,
-                t.name AS toilet_name, t.address AS toilet_address
+                t.name AS toilet_name, t.address AS toilet_address,
+                t.latitude, t.longitude, t.total_reviews AS toilet_total_reviews
          FROM toilet_reviews r
          LEFT JOIN users u ON r.user_id = u.id
          LEFT JOIN toilets t ON r.toilet_id = t.id

@@ -16,6 +16,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const STORAGE_KEY = 'ploop.hasSeenOnboarding';
 const { width: SCREEN_W } = Dimensions.get('window');
+// Card sits inside a backdrop with padding:24 on each side, capped at maxWidth 380
+const CARD_W = Math.min(SCREEN_W - 48, 380);
 
 interface Slide {
   emoji: string;
@@ -150,15 +152,14 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
   },
   scroll: {
-    width: SCREEN_W > 380 ? 380 : SCREEN_W - 48,
+    width: CARD_W,
   },
   slide: {
-    width: SCREEN_W > 380 ? 380 : SCREEN_W - 48,
+    width: CARD_W,
     paddingHorizontal: 28,
     paddingTop: 40,
     paddingBottom: 16,
     alignItems: 'center',
-    marginLeft: -30,
   },
   emoji: {
     fontSize: 64,
