@@ -348,5 +348,53 @@ export async function ensureFeatureTables(): Promise<void> {
       PRIMARY KEY (hunt_id, city)
     );
   `);
+
+  // Ploop Stonks — social posts on ploop-app.com/stonks.html
+  await safe(`
+    CREATE TABLE IF NOT EXISTS stonks_posts (
+      id uuid PRIMARY KEY,
+      text text NOT NULL,
+      author_name text NOT NULL DEFAULT 'Joel',
+      author_handle text NOT NULL DEFAULT '@ploopstonks',
+      is_active boolean NOT NULL DEFAULT true,
+      created_at timestamptz NOT NULL DEFAULT now(),
+      updated_at timestamptz NOT NULL DEFAULT now()
+    );
+  `);
+  await safe(`CREATE INDEX IF NOT EXISTS idx_stonks_posts_created ON stonks_posts (created_at DESC);`);
+
+  await safe(`
+    CREATE TABLE IF NOT EXISTS stonks_post_media (
+      id uuid PRIMARY KEY,
+      post_id uuid NOT NULL REFERENCES stonks_posts(id) ON DELETE CASCADE,
+      media_url text NOT NULL,
+      media_path text,
+      mime_type text,
+      original_name text,
+      created_at timestamptz NOT NULL DEFAULT now()
+    );
+  `);
+  await safe(`CREATE INDEX IF NOT EXISTS idx_stonks_media_post ON stonks_post_media (post_id);`);
+
+  await safe(`
+    CREATE TABLE IF NOT EXISTS stonks_likes (
+      post_id uuid NOT NULL REFERENCES stonks_posts(id) ON DELETE CASCADE,
+      device_id text NOT NULL,
+      created_at timestamptz NOT NULL DEFAULT now(),
+      PRIMARY KEY (post_id, device_id)
+    );
+  `);
+
+  await safe(`
+    CREATE TABLE IF NOT EXISTS stonks_comments (
+      id uuid PRIMARY KEY,
+      post_id uuid NOT NULL REFERENCES stonks_posts(id) ON DELETE CASCADE,
+      device_id text NOT NULL,
+      author_name text NOT NULL DEFAULT 'Guest',
+      text text NOT NULL,
+      created_at timestamptz NOT NULL DEFAULT now()
+    );
+  `);
+  await safe(`CREATE INDEX IF NOT EXISTS idx_stonks_comments_post ON stonks_comments (post_id, created_at);`);
 }
 

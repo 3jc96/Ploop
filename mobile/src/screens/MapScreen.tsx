@@ -37,6 +37,7 @@ import { LoadingBannerWithTrivia } from '../components/LoadingBannerWithTrivia';
 import { useMapPreload } from '../context/MapPreloadContext';
 import { API_BASE_URL } from '../config/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as WebBrowser from 'expo-web-browser';
 
 interface Landmark {
   id: string;
@@ -2445,6 +2446,21 @@ const MapScreen: React.FC = () => {
             <View style={styles.settingsRowText}>
               <Text style={styles.settingsRowTitle}>{t('catchThePoop')}</Text>
               <Text style={styles.settingsRowSubtitle}>{t('playPoopGame')}</Text>
+            </View>
+            <Text style={styles.settingsRowChevron}>›</Text>
+          </Pressable>
+          <Pressable
+            style={styles.settingsRow}
+            onPress={() => {
+              setSettingsOpen(false);
+              WebBrowser.openBrowserAsync('https://ploop-app.com/stonks.html');
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="Open Ploop Stonks"
+          >
+            <View style={styles.settingsRowText}>
+              <Text style={styles.settingsRowTitle}>📈 Ploop Stonks</Text>
+              <Text style={styles.settingsRowSubtitle}>Daily posts from the dev desk</Text>
             </View>
             <Text style={styles.settingsRowChevron}>›</Text>
           </Pressable>

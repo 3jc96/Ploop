@@ -6,7 +6,7 @@
     <title>Ploop Stonks — Daily posts</title>
     <meta
       name="description"
-      content="Daily market notes from the Ploop developer. Quick thoughts, not financial advice."
+      content="Daily market notes from the Ploop developer. Like, comment, and share."
     />
     <meta property="og:title" content="Ploop Stonks" />
     <meta property="og:description" content="Daily market notes from the Ploop developer." />
@@ -16,22 +16,86 @@
     <link rel="icon" href="assets/logo.png" type="image/png" />
     <link rel="stylesheet" href="css/site.css" />
     <style>
-      details.compose-hint {
-        background: var(--stonks-soft);
-        border: 1px solid #bbf7d0;
-        border-radius: var(--radius-sm);
-        padding: 12px 14px;
-        font-size: 0.8rem;
-        color: #166534;
-        margin-bottom: 20px;
-        line-height: 1.45;
+      .admin-bar {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 16px;
+        flex-wrap: wrap;
       }
 
-      details.compose-hint code {
-        font-size: 0.78rem;
-        background: rgba(255, 255, 255, 0.7);
-        padding: 2px 6px;
-        border-radius: 4px;
+      .btn-sm {
+        padding: 8px 14px;
+        border-radius: 999px;
+        border: 1px solid var(--border);
+        background: var(--card);
+        font-size: 0.82rem;
+        font-weight: 600;
+        cursor: pointer;
+        color: var(--text-muted);
+      }
+
+      .btn-sm.primary {
+        background: var(--stonks);
+        border-color: var(--stonks);
+        color: #fff;
+      }
+
+      .compose {
+        background: var(--card);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+        padding: 16px;
+        margin-bottom: 16px;
+        display: none;
+      }
+
+      .compose.open {
+        display: block;
+      }
+
+      .compose textarea {
+        width: 100%;
+        min-height: 100px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        padding: 12px;
+        font: inherit;
+        resize: vertical;
+      }
+
+      .compose-actions {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 10px;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      .file-pick input {
+        font-size: 0.8rem;
+      }
+
+      .preview-row {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-top: 10px;
+      }
+
+      .preview-thumb {
+        width: 72px;
+        height: 72px;
+        object-fit: cover;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+      }
+
+      .profile-bar,
+      .feed {
+        background: var(--card);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
       }
 
       .profile-bar {
@@ -39,9 +103,6 @@
         align-items: center;
         gap: 12px;
         padding: 16px;
-        background: var(--card);
-        border-radius: var(--radius);
-        box-shadow: var(--shadow);
         margin-bottom: 16px;
       }
 
@@ -52,41 +113,22 @@
         object-fit: cover;
       }
 
-      .profile-name {
-        font-weight: 800;
-        font-size: 1rem;
-      }
+      .profile-name { font-weight: 800; }
+      .profile-handle, .profile-bio { font-size: 0.85rem; color: var(--text-soft); }
+      .profile-bio { margin: 2px 0 0; color: var(--text-muted); }
 
-      .profile-handle {
-        font-size: 0.85rem;
-        color: var(--text-soft);
-      }
-
-      .profile-bio {
-        margin: 2px 0 0;
-        font-size: 0.82rem;
-        color: var(--text-muted);
-      }
-
-      .feed {
-        display: flex;
-        flex-direction: column;
-        gap: 0;
-        background: var(--card);
-        border-radius: var(--radius);
-        box-shadow: var(--shadow);
-        overflow: hidden;
-      }
+      .feed { overflow: hidden; }
 
       .post {
-        display: flex;
-        gap: 12px;
         padding: 16px;
         border-bottom: 1px solid var(--border);
       }
 
-      .post:last-child {
-        border-bottom: none;
+      .post:last-child { border-bottom: none; }
+
+      .post-head {
+        display: flex;
+        gap: 12px;
       }
 
       .post-avatar {
@@ -97,52 +139,131 @@
         flex-shrink: 0;
       }
 
-      .post-body {
-        flex: 1;
-        min-width: 0;
-      }
+      .post-body { flex: 1; min-width: 0; }
 
       .post-meta {
         display: flex;
         flex-wrap: wrap;
-        align-items: baseline;
         gap: 6px;
-        margin-bottom: 4px;
+        align-items: baseline;
+        margin-bottom: 6px;
       }
 
-      .post-name {
-        font-weight: 800;
-        font-size: 0.95rem;
-      }
-
-      .post-handle,
-      .post-dot,
-      .post-time {
-        font-size: 0.82rem;
-        color: var(--text-soft);
-      }
+      .post-name { font-weight: 800; font-size: 0.95rem; }
+      .post-handle, .post-time { font-size: 0.82rem; color: var(--text-soft); }
 
       .post-text {
-        margin: 0;
-        font-size: 0.95rem;
+        margin: 0 0 10px;
         white-space: pre-wrap;
         word-wrap: break-word;
+        font-size: 0.95rem;
       }
 
-      .feed-empty,
-      .feed-error {
+      .post-media {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        margin-bottom: 10px;
+      }
+
+      .post-media img {
+        max-width: 100%;
+        border-radius: var(--radius-sm);
+        border: 1px solid var(--border);
+      }
+
+      .post-media a.file-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 12px;
+        background: #f8fafc;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        text-decoration: none;
+        color: var(--text);
+        font-size: 0.85rem;
+        font-weight: 600;
+      }
+
+      .post-actions {
+        display: flex;
+        gap: 16px;
+        margin-top: 4px;
+      }
+
+      .action-btn {
+        background: none;
+        border: none;
+        padding: 4px 0;
+        font-size: 0.82rem;
+        font-weight: 600;
+        color: var(--text-soft);
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+      }
+
+      .action-btn:hover { color: var(--text); }
+      .action-btn.liked { color: #dc2626; }
+
+      .comments {
+        margin-top: 12px;
+        padding-top: 12px;
+        border-top: 1px solid #f1f5f9;
+      }
+
+      .comment {
+        font-size: 0.85rem;
+        margin-bottom: 8px;
+      }
+
+      .comment strong { font-weight: 700; }
+      .comment time { color: var(--text-soft); font-size: 0.78rem; margin-left: 6px; }
+
+      .comment-form {
+        display: flex;
+        gap: 8px;
+        margin-top: 10px;
+        flex-wrap: wrap;
+      }
+
+      .comment-form input,
+      .comment-form textarea {
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 8px 10px;
+        font: inherit;
+        font-size: 0.85rem;
+      }
+
+      .comment-form input { width: 120px; }
+      .comment-form textarea { flex: 1; min-width: 160px; min-height: 36px; }
+
+      .feed-empty, .feed-error, .feed-loading {
         padding: 32px 20px;
         text-align: center;
         color: var(--text-muted);
-        font-size: 0.9rem;
       }
 
-      .feed-loading {
-        padding: 24px;
-        text-align: center;
-        color: var(--text-soft);
+      .toast {
+        position: fixed;
+        bottom: 24px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: #111827;
+        color: #fff;
+        padding: 10px 18px;
+        border-radius: 999px;
         font-size: 0.85rem;
+        opacity: 0;
+        transition: opacity 0.2s;
+        z-index: 50;
+        pointer-events: none;
       }
+
+      .toast.show { opacity: 1; }
     </style>
   </head>
   <body>
@@ -156,17 +277,24 @@
       <main class="site-main">
         <header class="page-header">
           <h1>📈 Ploop Stonks</h1>
-          <p>Daily posts — quick market notes, not financial advice.</p>
+          <p>Daily posts — not financial advice. Like, comment &amp; share.</p>
         </header>
 
-        <details class="compose-hint">
-          <summary style="cursor:pointer;font-weight:700;">How to post daily</summary>
-          <p style="margin:10px 0 0;">
-            Edit <code>website/data/stonks-posts.json</code> in the repo. Add a new entry at the
-            <strong>top</strong> of <code>posts</code> with <code>id</code>, <code>date</code> (ISO),
-            and <code>text</code>. Push to GitHub — Render redeploys automatically.
-          </p>
-        </details>
+        <div class="admin-bar">
+          <button type="button" class="btn-sm" id="adminUnlockBtn">Admin post</button>
+        </div>
+
+        <section class="compose" id="composeBox" aria-label="New post">
+          <textarea id="composeText" placeholder="What's happening in the markets?" maxlength="4000"></textarea>
+          <div class="file-pick compose-actions">
+            <label class="btn-sm">
+              📎 Photos / PDF
+              <input type="file" id="composeFiles" accept="image/*,.pdf" multiple hidden />
+            </label>
+            <button type="button" class="btn-sm primary" id="composeSubmit">Post</button>
+          </div>
+          <div class="preview-row" id="filePreview"></div>
+        </section>
 
         <div class="profile-bar" id="profileBar" hidden>
           <img id="profileAvatar" src="assets/logo.png" width="48" height="48" alt="" />
@@ -187,10 +315,46 @@
       </footer>
     </div>
 
+    <div class="toast" id="toast" role="status"></div>
+
     <script>
       (function () {
+        var API =
+          window.PLOOP_API_URL ||
+          (location.hostname === 'localhost' || location.hostname === '127.0.0.1'
+            ? 'http://localhost:8082'
+            : 'https://ploop-api.onrender.com');
+
         var feed = document.getElementById('feed');
         var loading = document.getElementById('feedLoading');
+        var toast = document.getElementById('toast');
+        var author = {};
+        var posts = [];
+        var adminSecret = sessionStorage.getItem('ploop_stonks_admin_secret') || '';
+
+        function deviceId() {
+          var key = 'ploop_stonks_device_id';
+          var id = localStorage.getItem(key);
+          if (!id) {
+            id = 'web-' + Math.random().toString(36).slice(2) + Date.now().toString(36);
+            localStorage.setItem(key, id);
+          }
+          return id;
+        }
+
+        function showToast(msg) {
+          toast.textContent = msg;
+          toast.classList.add('show');
+          setTimeout(function () { toast.classList.remove('show'); }, 2200);
+        }
+
+        function escapeHtml(str) {
+          return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+        }
 
         function formatTime(iso) {
           var d = new Date(iso);
@@ -207,88 +371,303 @@
           return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
         }
 
-        function escapeHtml(str) {
-          return str
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;');
+        function mediaUrl(url) {
+          if (!url) return '';
+          if (url.indexOf('http') === 0) return url;
+          return API.replace(/\/$/, '') + url;
         }
 
-        function renderPost(author, post) {
+        function avatarSrc() {
+          var a = author.avatar || 'assets/logo.png';
+          if (a.indexOf('http') === 0) return a;
+          if (a.indexOf('/') === 0) return API.replace(/\/$/, '') + a;
+          return a;
+        }
+
+        function apiFetch(path, opts) {
+          opts = opts || {};
+          opts.headers = opts.headers || {};
+          if (adminSecret) opts.headers['X-Stonks-Admin-Secret'] = adminSecret;
+          return fetch(API + path, opts).then(function (res) {
+            return res.json().then(function (data) {
+              if (!res.ok) throw new Error(data.error || 'Request failed');
+              return data;
+            });
+          });
+        }
+
+        function renderMedia(media) {
+          if (!media || !media.length) return '';
+          return media
+            .map(function (m) {
+              var url = mediaUrl(m.media_url);
+              if ((m.mime_type || '').indexOf('image/') === 0) {
+                return '<img src="' + escapeHtml(url) + '" alt="" loading="lazy" />';
+              }
+              var label = escapeHtml(m.original_name || 'Download file');
+              return '<a class="file-link" href="' + escapeHtml(url) + '" target="_blank" rel="noopener">📄 ' + label + '</a>';
+            })
+            .join('');
+        }
+
+        function renderComments(post) {
+          return (
+            '<div class="comments" id="comments-' +
+            post.id +
+            '">' +
+            '<div class="comments-list"></div>' +
+            '<form class="comment-form" data-post-id="' +
+            post.id +
+            '">' +
+            '<input type="text" name="name" placeholder="Name" maxlength="60" />' +
+            '<textarea name="text" placeholder="Add a comment…" maxlength="1000" required></textarea>' +
+            '<button type="submit" class="btn-sm primary">Reply</button>' +
+            '</form></div>'
+          );
+        }
+
+        function appendCommentEl(list, c) {
+          var block = document.createElement('div');
+          block.className = 'comment';
+          block.innerHTML =
+            '<strong>' +
+            escapeHtml(c.author_name || 'Guest') +
+            '</strong><time>' +
+            formatTime(c.created_at) +
+            '</time><br />' +
+            escapeHtml(c.text).replace(/\n/g, '<br />');
+          list.appendChild(block);
+        }
+
+        function bindPostActions(article, post) {
+          var likeBtn = article.querySelector('[data-like]');
+          likeBtn.addEventListener('click', function () {
+            apiFetch('/api/stonks/posts/' + post.id + '/like', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ device_id: deviceId() }),
+            })
+              .then(function (data) {
+                likeBtn.classList.toggle('liked', data.liked);
+                likeBtn.innerHTML = (data.liked ? '❤️' : '🤍') + ' ' + data.like_count;
+              })
+              .catch(function (e) { showToast(e.message); });
+          });
+
+          var shareBtn = article.querySelector('[data-share]');
+          shareBtn.addEventListener('click', function () {
+            var url = location.origin + location.pathname + '#post-' + post.id;
+            var text = (post.text || '').slice(0, 120);
+            if (navigator.share) {
+              navigator.share({ title: 'Ploop Stonks', text: text, url: url }).catch(function () {});
+            } else {
+              navigator.clipboard.writeText(url).then(function () { showToast('Link copied'); });
+            }
+          });
+
+          var toggleBtn = article.querySelector('[data-toggle-comments]');
+          var commentsEl = article.querySelector('.comments');
+          var commentsList = article.querySelector('.comments-list');
+          commentsEl.hidden = true;
+          toggleBtn.addEventListener('click', function () {
+            commentsEl.hidden = !commentsEl.hidden;
+            if (!commentsEl.hidden && !commentsEl.dataset.loaded) {
+              apiFetch('/api/stonks/posts/' + post.id + '/comments')
+                .then(function (data) {
+                  commentsList.innerHTML = '';
+                  (data.comments || []).forEach(function (c) { appendCommentEl(commentsList, c); });
+                  commentsEl.dataset.loaded = '1';
+                })
+                .catch(function (e) { showToast(e.message); });
+            }
+          });
+
+          var form = article.querySelector('.comment-form');
+          form.addEventListener('submit', function (e) {
+            e.preventDefault();
+            var name = form.name.value.trim() || 'Guest';
+            var text = form.text.value.trim();
+            if (!text) return;
+            apiFetch('/api/stonks/posts/' + post.id + '/comments', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ device_id: deviceId(), author_name: name, text: text }),
+            })
+              .then(function (data) {
+                appendCommentEl(commentsList, data.comment);
+                form.text.value = '';
+                post.comment_count = (post.comment_count || 0) + 1;
+                toggleBtn.textContent = '💬 ' + post.comment_count;
+              })
+              .catch(function (err) { showToast(err.message); });
+          });
+        }
+
+        function renderPost(post) {
           var article = document.createElement('article');
           article.className = 'post';
-          article.setAttribute('data-post-id', post.id || '');
-          var avatar = author.avatar || 'assets/logo.png';
-          var name = author.name || 'Ploop';
-          var handle = author.handle || '@ploopstonks';
-          var text = escapeHtml(post.text || '').replace(/\n/g, '<br />');
+          article.id = 'post-' + post.id;
+          var liked = post.liked_by_me ? ' liked' : '';
+          var heart = post.liked_by_me ? '❤️' : '🤍';
           article.innerHTML =
+            '<div class="post-head">' +
             '<img class="post-avatar" src="' +
-            escapeHtml(avatar) +
-            '" width="44" height="44" alt="" />' +
+            escapeHtml(avatarSrc()) +
+            '" alt="" />' +
             '<div class="post-body">' +
             '<div class="post-meta">' +
             '<span class="post-name">' +
-            escapeHtml(name) +
+            escapeHtml(post.author_name || author.name) +
             '</span>' +
             '<span class="post-handle">' +
-            escapeHtml(handle) +
+            escapeHtml(post.author_handle || author.handle) +
             '</span>' +
-            '<span class="post-dot">·</span>' +
-            '<time class="post-time" datetime="' +
-            escapeHtml(post.date || '') +
-            '">' +
-            formatTime(post.date) +
-            '</time>' +
-            '</div>' +
+            '<span class="post-time">· ' +
+            formatTime(post.created_at) +
+            '</span></div>' +
             '<p class="post-text">' +
-            text +
+            escapeHtml(post.text).replace(/\n/g, '<br />') +
             '</p>' +
-            '</div>';
+            (post.media && post.media.length ? '<div class="post-media">' + renderMedia(post.media) + '</div>' : '') +
+            '<div class="post-actions">' +
+            '<button type="button" class="action-btn' +
+            liked +
+            '" data-like>' +
+            heart +
+            ' ' +
+            (post.like_count || 0) +
+            '</button>' +
+            '<button type="button" class="action-btn" data-toggle-comments>💬 ' +
+            (post.comment_count || 0) +
+            '</button>' +
+            '<button type="button" class="action-btn" data-share>↗ Share</button>' +
+            '</div>' +
+            renderComments(post) +
+            '</div></div>';
+          bindPostActions(article, post);
           return article;
         }
 
-        function showProfile(author) {
-          document.getElementById('profileBar').hidden = false;
-          document.getElementById('profileName').textContent = author.name || 'Joel';
-          document.getElementById('profileHandle').textContent = author.handle || '@ploopstonks';
-          document.getElementById('profileBio').textContent = author.bio || '';
-          document.getElementById('profileAvatar').src = author.avatar || 'assets/logo.png';
-          document.getElementById('profileAvatar').alt = (author.name || 'Author') + ' avatar';
+        function renderFeed() {
+          feed.innerHTML = '';
+          if (!posts.length) {
+            feed.innerHTML = '<div class="feed-empty">No posts yet.</div>';
+            return;
+          }
+          posts.forEach(function (p) { feed.appendChild(renderPost(p)); });
+          var hash = location.hash.replace('#post-', '');
+          if (hash) {
+            var el = document.getElementById('post-' + hash);
+            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
         }
 
-        fetch('data/stonks-posts.json?v=' + Date.now())
-          .then(function (res) {
-            if (!res.ok) throw new Error('Could not load posts');
-            return res.json();
-          })
-          .then(function (data) {
-            loading.remove();
-            var author = data.author || {};
-            var posts = Array.isArray(data.posts) ? data.posts.slice() : [];
-            showProfile(author);
-
-            posts.sort(function (a, b) {
-              return new Date(b.date) - new Date(a.date);
+        function loadPosts() {
+          return apiFetch('/api/stonks/posts?device_id=' + encodeURIComponent(deviceId()))
+            .then(function (data) {
+              posts = data.posts || [];
+              renderFeed();
             });
+        }
 
-            if (posts.length === 0) {
-              feed.innerHTML =
-                '<div class="feed-empty">No posts yet. Check back soon.</div>';
-              return;
-            }
-
-            posts.forEach(function (post) {
-              feed.appendChild(renderPost(author, post));
-            });
-          })
-          .catch(function () {
-            loading.remove();
-            feed.innerHTML =
-              '<div class="feed-error">Could not load posts. Try again later.</div>';
+        function loadConfig() {
+          return apiFetch('/api/stonks/config').then(function (data) {
+            author = data.author || {};
+            document.getElementById('profileBar').hidden = false;
+            document.getElementById('profileName').textContent = author.name || 'Joel';
+            document.getElementById('profileHandle').textContent = author.handle || '@ploopstonks';
+            document.getElementById('profileBio').textContent = author.bio || '';
+            var av = avatarSrc();
+            document.getElementById('profileAvatar').src = av;
           });
+        }
 
+        document.getElementById('adminUnlockBtn').addEventListener('click', function () {
+          if (adminSecret) {
+            document.getElementById('composeBox').classList.toggle('open');
+            return;
+          }
+          var entered = prompt('Enter admin post password (STONKS_ADMIN_SECRET):');
+          if (!entered) return;
+          adminSecret = entered.trim();
+          sessionStorage.setItem('ploop_stonks_admin_secret', adminSecret);
+          document.getElementById('composeBox').classList.add('open');
+          showToast('Admin unlocked this session');
+        });
+
+        if (adminSecret) document.getElementById('composeBox').classList.add('open');
+
+        document.getElementById('composeFiles').addEventListener('change', function (e) {
+          var preview = document.getElementById('filePreview');
+          preview.innerHTML = '';
+          Array.prototype.forEach.call(e.target.files || [], function (file) {
+            if (file.type.indexOf('image/') === 0) {
+              var img = document.createElement('img');
+              img.className = 'preview-thumb';
+              img.src = URL.createObjectURL(file);
+              preview.appendChild(img);
+            } else {
+              var span = document.createElement('span');
+              span.className = 'file-link';
+              span.textContent = '📄 ' + file.name;
+              preview.appendChild(span);
+            }
+          });
+        });
+
+        document.getElementById('composeSubmit').addEventListener('click', function () {
+          var text = document.getElementById('composeText').value.trim();
+          if (!text) {
+            showToast('Write something first');
+            return;
+          }
+          var fd = new FormData();
+          fd.append('text', text);
+          var files = document.getElementById('composeFiles').files;
+          for (var i = 0; i < files.length; i++) fd.append('media', files[i]);
+
+          var btn = document.getElementById('composeSubmit');
+          btn.disabled = true;
+          btn.textContent = 'Posting…';
+
+          fetch(API + '/api/stonks/posts', {
+            method: 'POST',
+            headers: adminSecret ? { 'X-Stonks-Admin-Secret': adminSecret } : {},
+            body: fd,
+          })
+            .then(function (res) {
+              return res.json().then(function (data) {
+                if (!res.ok) throw new Error(data.error || 'Post failed');
+                return data;
+              });
+            })
+            .then(function (data) {
+              posts.unshift(data.post);
+              renderFeed();
+              document.getElementById('composeText').value = '';
+              document.getElementById('composeFiles').value = '';
+              document.getElementById('filePreview').innerHTML = '';
+              showToast('Posted!');
+            })
+            .catch(function (err) {
+              showToast(err.message);
+              if (err.message.indexOf('Admin') !== -1) {
+                sessionStorage.removeItem('ploop_stonks_admin_secret');
+                adminSecret = '';
+              }
+            })
+            .finally(function () {
+              btn.disabled = false;
+              btn.textContent = 'Post';
+            });
+        });
+
+        Promise.all([loadConfig(), loadPosts()])
+          .then(function () { loading.remove(); })
+          .catch(function (err) {
+            loading.remove();
+            feed.innerHTML = '<div class="feed-error">' + escapeHtml(err.message) + '</div>';
+          });
       })();
     </script>
   </body>

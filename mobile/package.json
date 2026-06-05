@@ -1,6 +1,6 @@
 {
   "name": "ploop-mobile",
-  "version": "1.2.26",
+  "version": "1.2.27",
   "main": "node_modules/expo/AppEntry.js",
   "scripts": {
     "postinstall": "patch-package",

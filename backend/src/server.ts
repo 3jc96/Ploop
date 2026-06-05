@@ -20,6 +20,7 @@ import huntRouter from './routes/hunt';
 import huntAdminRouter from './routes/huntAdmin';
 import diagnosticsRouter from './routes/diagnostics';
 import internalJobsRouter from './routes/internalJobs';
+import stonksRouter from './routes/stonks';
 import { optionalAuth } from './middleware/auth';
 import { ensureFeatureTables } from './utils/ensureTables';
 import { checkDatabase } from './utils/checkDatabase';
@@ -50,6 +51,10 @@ const allowedOrigins = [
   'http://localhost:8081',
   'http://127.0.0.1:8081',
   'http://localhost:19006',
+  'http://localhost:3000',
+  'http://127.0.0.1:5500',
+  'https://ploop-app.com',
+  'https://www.ploop-app.com',
   ...(process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',').map((o: string) => o.trim()).filter(Boolean) : []),
 ];
 
@@ -183,6 +188,7 @@ app.use('/api/suggestions', suggestionsRouter);
 app.use('/api/hunt', huntRouter);
 app.use('/api/admin/hunt', huntAdminRouter);
 app.use('/api/internal', internalJobsRouter);
+app.use('/api/stonks', stonksRouter);
 app.use('/api', diagnosticsRouter);
 
 // Error handling middleware
