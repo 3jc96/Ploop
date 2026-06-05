@@ -1,0 +1,20 @@
+{
+  "author": {
+    "name": "Joel",
+    "handle": "@ploopstonks",
+    "avatar": "assets/logo.png",
+    "bio": "Daily market notes from the Ploop dev desk."
+  },
+  "posts": [
+    {
+      "id": "2026-06-05",
+      "date": "2026-06-05T14:00:00Z",
+      "text": "Welcome to Ploop Stonks 📈\n\nI'll post quick daily thoughts here — macro, positions, and whatever I'm watching. Not financial advice, just a dev building an app and trading on the side."
+    },
+    {
+      "id": "2026-06-04",
+      "date": "2026-06-04T21:30:00Z",
+      "text": "SPY holding above the 200-day MA. Watching for a clean pullback before adding. Patience > FOMO."
+    }
+  ]
+}

@@ -17,6 +17,7 @@
     <meta property="og:url" content="https://ploop-app.com/" />
     <meta property="og:image" content="https://ploop-app.com/assets/logo.png" />
     <link rel="icon" href="assets/logo.png" type="image/png" />
+    <link rel="stylesheet" href="css/site.css" />
     <style>
       :root {
         --bg: #f5f5f5;
@@ -51,14 +52,16 @@
         -webkit-font-smoothing: antialiased;
       }
 
-      .wrap {
-        min-height: 100vh;
+      .home-hero {
         display: flex;
         align-items: center;
         justify-content: center;
-        padding: 24px;
-        background: radial-gradient(ellipse 120% 80% at 50% -20%, rgba(33, 150, 243, 0.12), transparent),
-          var(--bg);
+        padding: 8px 0 24px;
+        background: radial-gradient(ellipse 120% 80% at 50% -20%, rgba(33, 150, 243, 0.12), transparent);
+      }
+
+      .site-main.home-main {
+        max-width: 480px;
       }
 
       .card {
@@ -486,8 +489,14 @@
     </style>
   </head>
   <body>
-    <div class="wrap">
-      <main class="card">
+    <div class="site-shell">
+      <nav class="site-nav" aria-label="Site">
+        <a href="index.html" class="active">Home</a>
+        <a href="stonks.html">Stonks</a>
+        <a href="about.html">About</a>
+      </nav>
+      <div class="home-hero">
+      <main class="site-main home-main card">
         <img class="logo" src="assets/logo.png" width="88" height="88" alt="Ploop app icon" />
         <div class="emoji" aria-hidden="true">🚽</div>
         <h1>Ploop</h1>
@@ -554,8 +563,12 @@
           <strong>Contact</strong><br />
           <a href="mailto:admin@ploop-app.com">admin@ploop-app.com</a>
         </div>
-        <footer>© Ploop</footer>
       </main>
+      </div>
+      <footer class="site-footer">
+        © Ploop · <a href="stonks.html">Stonks</a> · <a href="about.html">About</a> ·
+        <a href="mailto:admin@ploop-app.com">Contact</a>
+      </footer>
     </div>
     <!-- Treasure Hunt Popup -->
     <div class="popup-backdrop" id="treasurePopup">

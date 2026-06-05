@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>About — Ploop</title>
+    <meta
+      name="description"
+      content="About the developer behind Ploop — toilet navigation, games, and more."
+    />
+    <meta property="og:title" content="About Ploop" />
+    <meta property="og:description" content="Meet the developer behind Ploop." />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://ploop-app.com/about.html" />
+    <meta property="og:image" content="https://ploop-app.com/assets/logo.png" />
+    <link rel="icon" href="assets/logo.png" type="image/png" />
+    <link rel="stylesheet" href="css/site.css" />
+    <style>
+      .about-card {
+        background: var(--card);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+        padding: 28px 24px;
+      }
+
+      .about-top {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        margin-bottom: 24px;
+      }
+
+      .about-avatar {
+        width: 96px;
+        height: 96px;
+        border-radius: 22px;
+        object-fit: cover;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        margin-bottom: 12px;
+      }
+
+      .about-top h1 {
+        margin: 0 0 4px;
+        font-size: 1.5rem;
+        font-weight: 800;
+      }
+
+      .about-role {
+        margin: 0;
+        font-size: 0.95rem;
+        color: var(--text-muted);
+      }
+
+      .about-body p {
+        margin: 0 0 14px;
+        font-size: 0.95rem;
+        color: var(--text-muted);
+      }
+
+      .about-body p:last-child {
+        margin-bottom: 0;
+      }
+
+      .about-links {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        margin-top: 24px;
+        padding-top: 20px;
+        border-top: 1px solid var(--border);
+      }
+
+      .about-link {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 44px;
+        padding: 10px 16px;
+        border-radius: var(--radius-sm);
+        border: 1px solid #e0e7ff;
+        background: #eef2ff;
+        color: #3730a3;
+        font-size: 0.9rem;
+        font-weight: 600;
+        text-decoration: none;
+        transition: background 0.15s ease, border-color 0.15s ease;
+      }
+
+      .about-link:hover {
+        background: #e0e7ff;
+        border-color: #c7d2fe;
+      }
+
+      .about-link.muted {
+        background: #f8fafc;
+        border-color: var(--border);
+        color: var(--text-muted);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="site-shell">
+      <nav class="site-nav" aria-label="Site">
+        <a href="index.html">Home</a>
+        <a href="stonks.html">Stonks</a>
+        <a href="about.html" class="active">About</a>
+      </nav>
+
+      <main class="site-main">
+        <article class="about-card">
+          <div class="about-top">
+            <img class="about-avatar" src="assets/logo.png" width="96" height="96" alt="Ploop" />
+            <h1>Joel</h1>
+            <p class="about-role">Developer · Ploop</p>
+          </div>
+
+          <div class="about-body">
+            <p>
+              I built <strong>Ploop</strong> to solve a simple problem: finding a clean, nearby
+              toilet when you need one. What started as a map app grew into games, community
+              reviews, treasure hunts, and toilets across cities worldwide.
+            </p>
+            <p>
+              By day I ship features, fix bugs, and import toilet data. By night I post market
+              notes on <a href="stonks.html">Ploop Stonks</a> and experiment with quant ideas.
+            </p>
+            <p>
+              Ploop is independent, user-driven, and a little bit silly — on purpose. Thanks for
+              being here early.
+            </p>
+          </div>
+
+          <div class="about-links">
+            <a class="about-link" href="https://apps.apple.com/us/app/ploop/id6759898612" target="_blank" rel="noopener noreferrer">
+              Download Ploop (App Store)
+            </a>
+            <a class="about-link" href="stonks.html">Ploop Stonks — daily posts</a>
+            <a class="about-link muted" href="mailto:admin@ploop-app.com">admin@ploop-app.com</a>
+            <a class="about-link muted" href="https://www.instagram.com/ploop.app/" target="_blank" rel="noopener noreferrer">
+              Instagram @ploop.app
+            </a>
+          </div>
+        </article>
+      </main>
+
+      <footer class="site-footer">
+        © Ploop · <a href="mailto:admin@ploop-app.com">Contact</a>
+      </footer>
+    </div>
+  </body>
+</html>

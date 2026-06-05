@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Ploop Stonks — Daily posts</title>
+    <meta
+      name="description"
+      content="Daily market notes from the Ploop developer. Quick thoughts, not financial advice."
+    />
+    <meta property="og:title" content="Ploop Stonks" />
+    <meta property="og:description" content="Daily market notes from the Ploop developer." />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://ploop-app.com/stonks.html" />
+    <meta property="og:image" content="https://ploop-app.com/assets/logo.png" />
+    <link rel="icon" href="assets/logo.png" type="image/png" />
+    <link rel="stylesheet" href="css/site.css" />
+    <style>
+      details.compose-hint {
+        background: var(--stonks-soft);
+        border: 1px solid #bbf7d0;
+        border-radius: var(--radius-sm);
+        padding: 12px 14px;
+        font-size: 0.8rem;
+        color: #166534;
+        margin-bottom: 20px;
+        line-height: 1.45;
+      }
+
+      details.compose-hint code {
+        font-size: 0.78rem;
+        background: rgba(255, 255, 255, 0.7);
+        padding: 2px 6px;
+        border-radius: 4px;
+      }
+
+      .profile-bar {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 16px;
+        background: var(--card);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+        margin-bottom: 16px;
+      }
+
+      .profile-bar img {
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        object-fit: cover;
+      }
+
+      .profile-name {
+        font-weight: 800;
+        font-size: 1rem;
+      }
+
+      .profile-handle {
+        font-size: 0.85rem;
+        color: var(--text-soft);
+      }
+
+      .profile-bio {
+        margin: 2px 0 0;
+        font-size: 0.82rem;
+        color: var(--text-muted);
+      }
+
+      .feed {
+        display: flex;
+        flex-direction: column;
+        gap: 0;
+        background: var(--card);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+        overflow: hidden;
+      }
+
+      .post {
+        display: flex;
+        gap: 12px;
+        padding: 16px;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .post:last-child {
+        border-bottom: none;
+      }
+
+      .post-avatar {
+        width: 44px;
+        height: 44px;
+        border-radius: 50%;
+        object-fit: cover;
+        flex-shrink: 0;
+      }
+
+      .post-body {
+        flex: 1;
+        min-width: 0;
+      }
+
+      .post-meta {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        gap: 6px;
+        margin-bottom: 4px;
+      }
+
+      .post-name {
+        font-weight: 800;
+        font-size: 0.95rem;
+      }
+
+      .post-handle,
+      .post-dot,
+      .post-time {
+        font-size: 0.82rem;
+        color: var(--text-soft);
+      }
+
+      .post-text {
+        margin: 0;
+        font-size: 0.95rem;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+      }
+
+      .feed-empty,
+      .feed-error {
+        padding: 32px 20px;
+        text-align: center;
+        color: var(--text-muted);
+        font-size: 0.9rem;
+      }
+
+      .feed-loading {
+        padding: 24px;
+        text-align: center;
+        color: var(--text-soft);
+        font-size: 0.85rem;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="site-shell">
+      <nav class="site-nav" aria-label="Site">
+        <a href="index.html">Home</a>
+        <a href="stonks.html" class="active stonks-active">Stonks</a>
+        <a href="about.html">About</a>
+      </nav>
+
+      <main class="site-main">
+        <header class="page-header">
+          <h1>📈 Ploop Stonks</h1>
+          <p>Daily posts — quick market notes, not financial advice.</p>
+        </header>
+
+        <details class="compose-hint">
+          <summary style="cursor:pointer;font-weight:700;">How to post daily</summary>
+          <p style="margin:10px 0 0;">
+            Edit <code>website/data/stonks-posts.json</code> in the repo. Add a new entry at the
+            <strong>top</strong> of <code>posts</code> with <code>id</code>, <code>date</code> (ISO),
+            and <code>text</code>. Push to GitHub — Render redeploys automatically.
+          </p>
+        </details>
+
+        <div class="profile-bar" id="profileBar" hidden>
+          <img id="profileAvatar" src="assets/logo.png" width="48" height="48" alt="" />
+          <div>
+            <div class="profile-name" id="profileName">Joel</div>
+            <div class="profile-handle" id="profileHandle">@ploopstonks</div>
+            <p class="profile-bio" id="profileBio"></p>
+          </div>
+        </div>
+
+        <div class="feed" id="feed" aria-live="polite">
+          <div class="feed-loading" id="feedLoading">Loading posts…</div>
+        </div>
+      </main>
+
+      <footer class="site-footer">
+        © Ploop · <a href="mailto:admin@ploop-app.com">Contact</a>
+      </footer>
+    </div>
+
+    <script>
+      (function () {
+        var feed = document.getElementById('feed');
+        var loading = document.getElementById('feedLoading');
+
+        function formatTime(iso) {
+          var d = new Date(iso);
+          if (isNaN(d.getTime())) return '';
+          var now = new Date();
+          var diffMs = now - d;
+          var diffMin = Math.floor(diffMs / 60000);
+          var diffHr = Math.floor(diffMs / 3600000);
+          var diffDay = Math.floor(diffMs / 86400000);
+          if (diffMin < 1) return 'now';
+          if (diffMin < 60) return diffMin + 'm';
+          if (diffHr < 24) return diffHr + 'h';
+          if (diffDay < 7) return diffDay + 'd';
+          return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+        }
+
+        function escapeHtml(str) {
+          return str
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+        }
+
+        function renderPost(author, post) {
+          var article = document.createElement('article');
+          article.className = 'post';
+          article.setAttribute('data-post-id', post.id || '');
+          var avatar = author.avatar || 'assets/logo.png';
+          var name = author.name || 'Ploop';
+          var handle = author.handle || '@ploopstonks';
+          var text = escapeHtml(post.text || '').replace(/\n/g, '<br />');
+          article.innerHTML =
+            '<img class="post-avatar" src="' +
+            escapeHtml(avatar) +
+            '" width="44" height="44" alt="" />' +
+            '<div class="post-body">' +
+            '<div class="post-meta">' +
+            '<span class="post-name">' +
+            escapeHtml(name) +
+            '</span>' +
+            '<span class="post-handle">' +
+            escapeHtml(handle) +
+            '</span>' +
+            '<span class="post-dot">·</span>' +
+            '<time class="post-time" datetime="' +
+            escapeHtml(post.date || '') +
+            '">' +
+            formatTime(post.date) +
+            '</time>' +
+            '</div>' +
+            '<p class="post-text">' +
+            text +
+            '</p>' +
+            '</div>';
+          return article;
+        }
+
+        function showProfile(author) {
+          document.getElementById('profileBar').hidden = false;
+          document.getElementById('profileName').textContent = author.name || 'Joel';
+          document.getElementById('profileHandle').textContent = author.handle || '@ploopstonks';
+          document.getElementById('profileBio').textContent = author.bio || '';
+          document.getElementById('profileAvatar').src = author.avatar || 'assets/logo.png';
+          document.getElementById('profileAvatar').alt = (author.name || 'Author') + ' avatar';
+        }
+
+        fetch('data/stonks-posts.json?v=' + Date.now())
+          .then(function (res) {
+            if (!res.ok) throw new Error('Could not load posts');
+            return res.json();
+          })
+          .then(function (data) {
+            loading.remove();
+            var author = data.author || {};
+            var posts = Array.isArray(data.posts) ? data.posts.slice() : [];
+            showProfile(author);
+
+            posts.sort(function (a, b) {
+              return new Date(b.date) - new Date(a.date);
+            });
+
+            if (posts.length === 0) {
+              feed.innerHTML =
+                '<div class="feed-empty">No posts yet. Check back soon.</div>';
+              return;
+            }
+
+            posts.forEach(function (post) {
+              feed.appendChild(renderPost(author, post));
+            });
+          })
+          .catch(function () {
+            loading.remove();
+            feed.innerHTML =
+              '<div class="feed-error">Could not load posts. Try again later.</div>';
+          });
+
+      })();
+    </script>
+  </body>
+</html>
