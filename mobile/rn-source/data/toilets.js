@@ -49,12 +49,35 @@ export function mapToiletForDesign(toilet) {
 }
 
 async function getCurrentCoords() {
-  const { status } = await Location.requestForegroundPermissionsAsync();
-  if (status !== 'granted') {
+  // Reuse permission already granted by the map; only prompt if undetermined.
+  let granted = false;
+  try {
+    const current = await Location.getForegroundPermissionsAsync();
+    granted = current.status === 'granted';
+    if (!granted && current.canAskAgain !== false) {
+      const requested = await Location.requestForegroundPermissionsAsync();
+      granted = requested.status === 'granted';
+    }
+  } catch {
+    granted = false;
+  }
+  if (!granted) {
     throw new Error('Location permission is required to load nearby toilets.');
   }
+
+  // Fast path: last known position (instant, same as the map screen).
+  try {
+    const last = await Location.getLastKnownPositionAsync();
+    if (last?.coords) {
+      return { latitude: last.coords.latitude, longitude: last.coords.longitude };
+    }
+  } catch {
+    // fall through to a fresh fix
+  }
+
+  // Fallback: fresh fix (slower). Lowest accuracy keeps it quick.
   const position = await Location.getCurrentPositionAsync({
-    accuracy: Location.Accuracy.Balanced,
+    accuracy: Location.Accuracy.Low,
   });
   return {
     latitude: position.coords.latitude,

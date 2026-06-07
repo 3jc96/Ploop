@@ -1,5 +1,5 @@
 import React from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { colors, radius, spacing, typography } from '../theme';
 import { ScrollPage } from '../components/ui';
@@ -61,6 +61,10 @@ export default function ProfileScreen(props: ProfileScreenProps) {
   const memberSince = props.memberSince ?? live.memberSince;
   const stats = props.stats ?? live.stats;
 
+  const openSettings = () => Linking.openSettings().catch(() => {});
+  const rateApp = () =>
+    Linking.openURL('https://apps.apple.com/app/id6759898612?action=write-review').catch(() => {});
+
   return (
     <ScrollPage style={styles.container}>
       <View style={styles.header}>
@@ -89,16 +93,16 @@ export default function ProfileScreen(props: ProfileScreenProps) {
           icon={'\ud83d\udd14'}
           iconBg="#ffe4e6"
           label="Notifications"
-          onPress={() => {}}
+          onPress={openSettings}
         />
-        <SettingRow icon={'\ud83d\udd12'} iconBg="#dbeafe" label="Privacy" onPress={() => {}} />
+        <SettingRow icon={'\ud83d\udd12'} iconBg="#dbeafe" label="Privacy" onPress={openSettings} />
         <SettingRow
           icon={'\ud83d\udccd'}
           iconBg="#dcfce7"
           label="Location Sharing"
-          onPress={() => {}}
+          onPress={openSettings}
         />
-        <SettingRow icon={'\u2b50'} iconBg="#fef9c3" label="Rate Ploop" onPress={() => {}} />
+        <SettingRow icon={'\u2b50'} iconBg="#fef9c3" label="Rate Ploop" onPress={rateApp} />
       </View>
 
       {user ? (

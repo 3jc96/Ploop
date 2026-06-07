@@ -148,6 +148,9 @@ export default function NearbyScreen() {
           {error ? (
             <View style={styles.errorBox}>
               <Text style={styles.errorText}>{error}</Text>
+              <Pressable style={styles.retry} onPress={() => load()}>
+                <Text style={styles.retryText}>Try again</Text>
+              </Pressable>
             </View>
           ) : null}
 
@@ -220,5 +223,14 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
   },
   errorText: { color: colors.red },
+  retry: {
+    marginTop: 10,
+    alignSelf: 'flex-start',
+    backgroundColor: colors.blue,
+    borderRadius: radius.md,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  retryText: { color: colors.white, fontWeight: '600' },
   empty: { textAlign: 'center', color: colors.label3, marginTop: spacing.xxl },
 });
