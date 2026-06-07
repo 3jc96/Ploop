@@ -87,6 +87,50 @@ async function getCurrentCoords() {
 }
 
 /**
+ * Collapse toilets that represent the same physical place. The API can return
+ * several near-identical rows for one location (re-imports, duplicate submits),
+ * which shows up as repeated entries in the Nearby list.
+ */
+function dedupeToilets(list) {
+  const isBetter = (candidate, current) => {
+    const cReviews = candidate.total_reviews ?? 0;
+    const curReviews = current.total_reviews ?? 0;
+    if (cReviews !== curReviews) return cReviews > curReviews;
+    const cConf = candidate.confidence_score ?? 0;
+    const curConf = current.confidence_score ?? 0;
+    if (cConf !== curConf) return cConf > curConf;
+    const cDist = candidate.distance ?? Infinity;
+    const curDist = current.distance ?? Infinity;
+    return cDist < curDist;
+  };
+
+  const locationKey = (t) => {
+    const name = String(t.name ?? '').trim().toLowerCase();
+    const address = String(t.address ?? '').trim().toLowerCase();
+    if (name || address) return `na:${name}|${address}`;
+    // Fall back to coordinates rounded to ~11 m so the same spot collapses.
+    const lat = t.latitude != null ? Number(t.latitude).toFixed(4) : '?';
+    const lng = t.longitude != null ? Number(t.longitude).toFixed(4) : '?';
+    return `geo:${lat},${lng}`;
+  };
+
+  const byId = new Map();
+  for (const t of list) {
+    if (t.id == null) continue;
+    if (!byId.has(t.id)) byId.set(t.id, t);
+  }
+
+  const byLocation = new Map();
+  for (const t of byId.values()) {
+    const key = locationKey(t);
+    const existing = byLocation.get(key);
+    if (!existing || isBetter(t, existing)) byLocation.set(key, t);
+  }
+
+  return Array.from(byLocation.values());
+}
+
+/**
  * Fetch nearby toilets from the Ploop API.
  * @param {{ latitude?: number, longitude?: number, radius?: number, limit?: number }} [params]
  */
@@ -107,7 +151,7 @@ export async function fetchNearbyToilets(params = {}) {
     has_bidet: params.has_bidet,
   });
 
-  return toilets.map(mapToiletForDesign);
+  return dedupeToilets(toilets.map(mapToiletForDesign));
 }
 
 /** Fetch a single toilet by id. */
