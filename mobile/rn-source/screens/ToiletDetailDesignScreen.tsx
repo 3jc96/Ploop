@@ -129,8 +129,8 @@ export default function ToiletDetailDesignScreen() {
           ) : null}
           <View style={styles.pills}>
             {!toilet.pay_to_enter ? <Pill label="Free" /> : <Pill label="Paid" />}
-            {toilet.wheelchair_accessible ? <Pill label="\u267f Accessible" /> : null}
-            {(toilet.raw as any)?.has_baby_changing ? <Pill label="\ud83c\udf7c Baby Change" /> : null}
+            {toilet.wheelchair_accessible ? <Pill label={'\u267f Accessible'} /> : null}
+            {(toilet.raw as any)?.has_baby_changing ? <Pill label={'\ud83c\udf7c Baby Change'} /> : null}
           </View>
         </View>
 
@@ -184,9 +184,9 @@ export default function ToiletDetailDesignScreen() {
         </Card>
 
         <View style={styles.actionStack}>
-          <DangerButton label="\ud83c\udd98 Send SOS \u2014 I Need Help" onPress={() => navigation.navigate('SOS')} />
+          <DangerButton label={'\ud83c\udd98 Send SOS \u2014 I Need Help'} onPress={() => navigation.navigate('SOS')} />
           <PrimaryButton
-            label="\u270f\ufe0f Write a Review"
+            label={'\u270f\ufe0f Write a Review'}
             onPress={() =>
               navigation.navigate('LocationReview', { toiletId: toilet.id, name: toilet.name })
             }

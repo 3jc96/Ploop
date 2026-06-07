@@ -12,6 +12,7 @@ import {
   ViewStyle,
   TextStyle,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, radius, spacing, typography, shadow } from '../theme';
 
 /* ── NavBar ─────────────────────────────────────────────── */
@@ -24,8 +25,9 @@ export function NavBar({
   onBack?: () => void;
   right?: React.ReactNode;
 }) {
+  const insets = useSafeAreaInsets();
   return (
-    <View style={styles.nbar}>
+    <View style={[styles.nbar, { paddingTop: insets.top, height: 48 + insets.top }]}>
       <View style={styles.nbarSide}>
         {onBack ? (
           <Pressable onPress={onBack} hitSlop={8} style={styles.backBtn}>
@@ -192,7 +194,6 @@ export function ScrollPage({
 
 const styles = StyleSheet.create({
   nbar: {
-    height: 48,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: spacing.lg,

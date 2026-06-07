@@ -49,7 +49,7 @@ function ToiletRow({ toilet, onPress }: { toilet: DesignToilet; onPress: () => v
           <Stars value={toilet.rating} size={11} />
           {toilet.rating != null ? <Text style={styles.rnum}>{toilet.rating.toFixed(1)}</Text> : null}
           {free ? <Tag label="Free" variant="free" /> : null}
-          {toilet.wheelchair_accessible ? <Tag label="\u267f" variant="accent" /> : null}
+          {toilet.wheelchair_accessible ? <Tag label={'\u267f'} variant="accent" /> : null}
         </View>
       </View>
       <Text style={styles.chev}>{'\u203a'}</Text>
