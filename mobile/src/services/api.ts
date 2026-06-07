@@ -114,6 +114,10 @@ export interface AuthUser {
   email: string;
   display_name: string | null;
   role: string;
+  created_at?: string;
+  review_count?: number;
+  checkin_count?: number;
+  favorite_count?: number;
 }
 
 export interface ToiletReview {
@@ -342,7 +346,10 @@ export const api = {
     },
     getMe: async (): Promise<{ user: AuthUser }> => {
       const auth = await api.getAuthHeaders();
-      const response = await httpClient.get(API_ENDPOINTS.authMe, { headers: auth });
+      const device = await api.withDeviceHeaders();
+      const response = await httpClient.get(API_ENDPOINTS.authMe, {
+        headers: { ...auth, ...device.headers },
+      });
       return response.data;
     },
     logout: async (): Promise<void> => {

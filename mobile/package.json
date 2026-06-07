@@ -22,6 +22,7 @@
     "clean-ports": "node -e \"const {execSync}=require('child_process');[8081,8082].forEach(p=>{try{const pid=execSync('lsof -t -iTCP:'+p+' -sTCP:LISTEN',{encoding:'utf8'}).trim();if(pid){execSync('kill '+pid);console.log('Killed PID '+pid+' on port '+p);}}catch(e){}})\""
   },
   "dependencies": {
+    "@gorhom/bottom-sheet": "^5.2.14",
     "@react-google-maps/api": "^2.20.8",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@react-native-community/slider": "5.0.1",
@@ -36,6 +37,7 @@
     "expo-auth-session": "~7.0.10",
     "expo-av": "~16.0.8",
     "expo-constants": "~18.0.13",
+    "expo-contacts": "~15.0.11",
     "expo-crypto": "~15.0.8",
     "expo-dev-client": "~6.0.20",
     "expo-file-system": "~19.0.21",
@@ -55,6 +57,7 @@
     "react-native": "0.81.5",
     "react-native-gesture-handler": "~2.28.0",
     "react-native-maps": "1.20.1",
+    "react-native-reanimated": "~4.1.1",
     "react-native-safe-area-context": "~5.6.0",
     "react-native-screens": "~4.16.0",
     "react-native-web": "^0.21.0"

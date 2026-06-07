@@ -7,6 +7,7 @@ SplashScreen.preventAutoHideAsync().catch(() => {});
 import { createStackNavigator } from '@react-navigation/stack';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import * as WebBrowser from 'expo-web-browser';
 import { initGoogleSignIn } from './src/utils/initGoogleSignIn';
 import { AppErrorBoundary } from './src/AppErrorBoundary';
@@ -30,6 +31,8 @@ const ToiletDetailsScreen = React.lazy(() => import('./src/screens/ToiletDetails
 const AddToiletScreen = React.lazy(() => import('./src/screens/AddToiletScreen'));
 const LocationReviewScreen = React.lazy(() => import('./src/screens/LocationReviewScreen'));
 const AdminScreen = React.lazy(() => import('./src/screens/AdminScreen'));
+const ProfileScreen = React.lazy(() => import('./rn-source/screens/ProfileScreen'));
+const SOSScreen = React.lazy(() => import('./rn-source/screens/SOSScreen'));
 
 const Stack = createStackNavigator();
 
@@ -45,6 +48,8 @@ const linking = {
       Login: 'login',
       Redirect: 'redirect',
       Admin: 'admin',
+      Profile: 'profile',
+      SOS: 'sos',
       PoopGame: 'game',
       ToiletDetails: 'toilet/:id',
       AddToilet: 'add',
@@ -98,6 +103,7 @@ export default function App() {
   return (
     <AppErrorBoundary>
       <GestureHandlerRootView style={{ flex: 1 }}>
+        <BottomSheetModalProvider>
         <SafeAreaProvider>
           <SplashSoundGate>
           <LanguageProvider>
@@ -155,6 +161,16 @@ export default function App() {
                 options={{ title: 'Admin' }}
               />
               <Stack.Screen
+                name="Profile"
+                component={withSuspense(ProfileScreen)}
+                options={{ title: 'Profile' }}
+              />
+              <Stack.Screen
+                name="SOS"
+                component={withSuspense(SOSScreen)}
+                options={{ title: 'SOS' }}
+              />
+              <Stack.Screen
                 name="PoopGame"
                 component={PoopGameEntry}
                 options={{ title: 'Catch the Poop' }}
@@ -167,6 +183,7 @@ export default function App() {
           </LanguageProvider>
           </SplashSoundGate>
         </SafeAreaProvider>
+        </BottomSheetModalProvider>
       </GestureHandlerRootView>
     </AppErrorBoundary>
   );

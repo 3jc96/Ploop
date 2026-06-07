@@ -2437,6 +2437,37 @@ const MapScreen: React.FC = () => {
             style={styles.settingsRow}
             onPress={() => {
               setSettingsOpen(false);
+              if (user) (navigation as any).navigate('Profile');
+              else (navigation as any).navigate('Login', { returnTo: 'Profile' });
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="Open your profile"
+          >
+            <View style={styles.settingsRowText}>
+              <Text style={styles.settingsRowTitle}>Profile</Text>
+              <Text style={styles.settingsRowSubtitle}>Your stats and member info</Text>
+            </View>
+            <Text style={styles.settingsRowChevron}>›</Text>
+          </Pressable>
+          <Pressable
+            style={styles.settingsRow}
+            onPress={() => {
+              setSettingsOpen(false);
+              (navigation as any).navigate('SOS');
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="Open SOS"
+          >
+            <View style={styles.settingsRowText}>
+              <Text style={styles.settingsRowTitle}>🆘 SOS</Text>
+              <Text style={styles.settingsRowSubtitle}>Pick a contact to notify in an emergency</Text>
+            </View>
+            <Text style={styles.settingsRowChevron}>›</Text>
+          </Pressable>
+          <Pressable
+            style={styles.settingsRow}
+            onPress={() => {
+              setSettingsOpen(false);
               if (user) (navigation as any).navigate('PoopGame');
               else (navigation as any).navigate('Login', { returnTo: 'PoopGame' });
             }}
@@ -2453,7 +2484,9 @@ const MapScreen: React.FC = () => {
             style={styles.settingsRow}
             onPress={() => {
               setSettingsOpen(false);
-              WebBrowser.openBrowserAsync('https://ploop-app.com/stonks.html');
+              setTimeout(() => {
+                WebBrowser.openBrowserAsync('https://ploop-app.com/stonks.html');
+              }, 350);
             }}
             accessibilityRole="button"
             accessibilityLabel="Open Ploop Stonks"

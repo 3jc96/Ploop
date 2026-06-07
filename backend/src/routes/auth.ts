@@ -291,17 +291,42 @@ router.post(
   }
 );
 
-// GET /api/auth/me – return current user (requires Auth header)
+// GET /api/auth/me – return current user + profile stats (requires Auth header)
 router.get('/me', requireAuth, async (req: Request, res: Response) => {
   if (!req.user) return res.status(401).json({ error: 'Not authenticated' });
+  const deviceId = typeof req.headers['x-ploop-device-id'] === 'string' ? req.headers['x-ploop-device-id'] : null;
   const [row] = (
     await pool.query(
-      'SELECT id, email, display_name, role FROM users WHERE id = $1',
-      [req.user.id]
+      `SELECT
+         u.id,
+         u.email,
+         u.display_name,
+         u.role,
+         u.created_at,
+         (SELECT COUNT(*)::int FROM toilet_reviews WHERE user_id = u.id) AS review_count,
+         (SELECT COUNT(*)::int FROM toilet_checkins WHERE user_id = u.id) AS checkin_count,
+         (
+           SELECT COUNT(*)::int FROM toilet_favorites
+           WHERE device_id = COALESCE($2, '')
+         ) AS favorite_count
+       FROM users u
+       WHERE u.id = $1`,
+      [req.user.id, deviceId]
     )
   ).rows;
   if (!row) return res.status(404).json({ error: 'User not found' });
-  res.json({ user: { id: row.id, email: row.email, display_name: row.display_name, role: row.role } });
+  res.json({
+    user: {
+      id: row.id,
+      email: row.email,
+      display_name: row.display_name,
+      role: row.role,
+      created_at: row.created_at,
+      review_count: row.review_count ?? 0,
+      checkin_count: row.checkin_count ?? 0,
+      favorite_count: deviceId ? (row.favorite_count ?? 0) : 0,
+    },
+  });
 });
 
 export default router;
