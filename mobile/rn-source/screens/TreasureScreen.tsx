@@ -11,8 +11,10 @@ function daysRemaining(endsAt: string | null): number | null {
   return Math.max(0, Math.ceil((end - Date.now()) / 86_400_000));
 }
 
+const RANK_EMOJI = ['\ud83e\udd47', '\ud83e\udd48', '\ud83e\udd49'];
+
 export default function TreasureScreen() {
-  const { status, loading, error, totalRemaining } = useHuntStatus();
+  const { status, leaders, progress, loading, error, totalRemaining } = useHuntStatus();
 
   if (loading) {
     return (
@@ -26,6 +28,10 @@ export default function TreasureScreen() {
   const remainingByCity = status?.goldenToiletsRemaining ?? {};
   const cities = Object.keys(remainingByCity).sort();
   const endDays = daysRemaining(status?.endsAt ?? null);
+
+  const myFound = progress?.found ?? 0;
+  const myTotal = progress?.totalGolden ?? null;
+  const progressPct = myTotal && myTotal > 0 ? Math.min(100, (myFound / myTotal) * 100) : 0;
 
   return (
     <ScrollPage style={styles.container}>
@@ -44,7 +50,17 @@ export default function TreasureScreen() {
               ? `Next hunt starts in ${status.daysUntilStart} day${status.daysUntilStart === 1 ? '' : 's'}`
               : 'No active hunt right now'}
         </Text>
-        {active ? (
+        {active && myTotal != null ? (
+          <>
+            <View style={styles.pcBarTrack}>
+              <View style={[styles.pcBarFill, { width: `${progressPct}%` }]} />
+            </View>
+            <Text style={styles.pcCount}>
+              {`${myFound} / ${myTotal} found this hunt`}
+              {progress?.percentile != null ? ` \u00b7 \ud83c\udfc6 Top ${progress.percentile}%` : ''}
+            </Text>
+          </>
+        ) : active ? (
           <Text style={styles.pcCount}>
             {`\ud83c\udfc6 ${totalRemaining} golden toilet${totalRemaining === 1 ? '' : 's'} still hidden`}
             {endDays != null ? ` \u00b7 ${endDays} day${endDays === 1 ? '' : 's'} left` : ''}
@@ -83,13 +99,36 @@ export default function TreasureScreen() {
         </Card>
       ) : null}
 
-      <View style={styles.placeholderNote}>
-        <Text style={styles.placeholderTitle}>Leaderboard \u2014 coming soon</Text>
-        <Text style={styles.placeholderText}>
-          A public leaderboard and personal rank aren't available yet (no backend endpoint). Once the
-          hunt check-in stats are exposed via an API, this section will show top hunters and your rank.
-        </Text>
-      </View>
+      <Text style={styles.sectionHdr}>Leaderboard</Text>
+      {leaders.length === 0 ? (
+        <View style={styles.group}>
+          <Text style={styles.emptyLeader}>
+            No golden toilets found yet. Be the first hunter on the board!
+          </Text>
+        </View>
+      ) : (
+        <View style={styles.group}>
+          {leaders.map((l) => {
+            const isMe =
+              progress?.rank != null && l.rank === progress.rank && l.found === myFound;
+            return (
+              <View key={`${l.rank}-${l.displayName}`} style={[styles.leaderRow, isMe && styles.leaderRowMe]}>
+                <Text style={styles.leaderRank}>
+                  {l.rank <= 3 ? RANK_EMOJI[l.rank - 1] : `#${l.rank}`}
+                </Text>
+                <View style={styles.leaderInfo}>
+                  <Text style={styles.leaderName} numberOfLines={1}>
+                    {isMe ? 'You' : l.displayName}
+                  </Text>
+                  <Text style={styles.leaderSub}>
+                    {l.found} found
+                  </Text>
+                </View>
+              </View>
+            );
+          })}
+        </View>
+      )}
 
       <View style={{ height: spacing.lg }} />
     </ScrollPage>
@@ -111,7 +150,9 @@ const styles = StyleSheet.create({
   },
   pcTitle: { fontSize: 17, fontWeight: '700', letterSpacing: -0.2, color: colors.white },
   pcSub: { fontSize: 13, color: 'rgba(255,255,255,0.85)', marginTop: 2 },
-  pcCount: { fontSize: 12, color: 'rgba(255,255,255,0.8)', marginTop: 13, fontWeight: '500' },
+  pcBarTrack: { height: 6, backgroundColor: 'rgba(255,255,255,0.3)', borderRadius: 3, marginTop: 13 },
+  pcBarFill: { height: '100%', backgroundColor: 'rgba(255,255,255,0.9)', borderRadius: 3 },
+  pcCount: { fontSize: 12, color: 'rgba(255,255,255,0.8)', marginTop: 6, fontWeight: '500' },
 
   sectionHdr: {
     fontSize: 19,
@@ -153,16 +194,18 @@ const styles = StyleSheet.create({
 
   howText: { fontSize: 14, color: colors.label2, lineHeight: 21 },
 
-  placeholderNote: {
-    margin: spacing.sm,
-    marginTop: spacing.lg,
-    padding: spacing.lg,
-    backgroundColor: colors.bg,
-    borderRadius: radius.xl,
-    borderWidth: 1,
-    borderColor: colors.separator,
-    borderStyle: 'dashed',
+  leaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 11,
+    padding: 13,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.separator,
   },
-  placeholderTitle: { fontSize: 15, fontWeight: '700', color: colors.label2 },
-  placeholderText: { fontSize: 13, color: colors.label3, marginTop: 6, lineHeight: 19 },
+  leaderRowMe: { backgroundColor: colors.blueLight },
+  leaderRank: { width: 36, textAlign: 'center', fontSize: 17, fontWeight: '700', color: colors.label },
+  leaderInfo: { flex: 1 },
+  leaderName: { fontSize: 15, fontWeight: '500', color: colors.label },
+  leaderSub: { fontSize: 13, color: colors.label2, marginTop: 2 },
+  emptyLeader: { padding: spacing.lg, textAlign: 'center', color: colors.label3, fontSize: 13 },
 });

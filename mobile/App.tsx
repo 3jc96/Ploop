@@ -26,13 +26,13 @@ import LoginScreenWrapper from './src/screens/LoginScreenWrapper';
 import RedirectScreen from './src/screens/RedirectScreen';
 import PoopGameEntry from './src/screens/PoopGameEntry';
 // Lazy-load other screens so the app entry registers before loading heavy deps.
-const MapScreen = React.lazy(() => import('./src/screens/MapScreenWrapper'));
 const ToiletDetailsScreen = React.lazy(() => import('./src/screens/ToiletDetailsScreen'));
 const AddToiletScreen = React.lazy(() => import('./src/screens/AddToiletScreen'));
 const LocationReviewScreen = React.lazy(() => import('./src/screens/LocationReviewScreen'));
 const AdminScreen = React.lazy(() => import('./src/screens/AdminScreen'));
 const ProfileScreen = React.lazy(() => import('./rn-source/screens/ProfileScreen'));
 const SOSScreen = React.lazy(() => import('./rn-source/screens/SOSScreen'));
+// The design tab navigator (Map / Nearby / Treasure / Profile) is the default home.
 const DesignHome = React.lazy(() => import('./rn-source/navigation/index'));
 const ToiletDetailDesignScreen = React.lazy(() => import('./rn-source/screens/ToiletDetailDesignScreen'));
 
@@ -136,8 +136,8 @@ export default function App() {
               />
               <Stack.Screen
                 name="Map"
-                component={withSuspense(MapScreen)}
-                options={{ title: 'Ploop - Find Toilets', headerShown: false }}
+                component={withSuspense(DesignHome)}
+                options={{ title: 'Ploop', headerShown: false }}
               />
               <Stack.Screen
                 name="ToiletDetails"

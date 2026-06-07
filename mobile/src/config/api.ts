@@ -190,6 +190,8 @@ export const API_ENDPOINTS = {
   adminRegisterPushToken: `${API_BASE_URL}/api/admin/register-push-token`,
   // Golden Toilet Hunt
   huntStatus: `${API_BASE_URL}/api/hunt/status`,
+  huntLeaderboard: `${API_BASE_URL}/api/hunt/leaderboard`,
+  huntMe: `${API_BASE_URL}/api/hunt/me`,
   huntRegisterPushToken: `${API_BASE_URL}/api/hunt/register-push-token`,
   // Hunt admin
   huntAdminDashboard: `${API_BASE_URL}/api/admin/hunt/dashboard`,

@@ -2437,21 +2437,6 @@ const MapScreen: React.FC = () => {
             style={styles.settingsRow}
             onPress={() => {
               setSettingsOpen(false);
-              (navigation as any).navigate('DesignHome');
-            }}
-            accessibilityRole="button"
-            accessibilityLabel="Open the new design preview"
-          >
-            <View style={styles.settingsRowText}>
-              <Text style={styles.settingsRowTitle}>✨ New Design (Preview)</Text>
-              <Text style={styles.settingsRowSubtitle}>Nearby, Treasure Hunt & Profile</Text>
-            </View>
-            <Text style={styles.settingsRowChevron}>›</Text>
-          </Pressable>
-          <Pressable
-            style={styles.settingsRow}
-            onPress={() => {
-              setSettingsOpen(false);
               if (user) (navigation as any).navigate('Profile');
               else (navigation as any).navigate('Login', { returnTo: 'Profile' });
             }}

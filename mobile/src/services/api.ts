@@ -485,6 +485,27 @@ export const api = {
       const response = await httpClient.get(API_ENDPOINTS.huntStatus);
       return response.data;
     },
+    getLeaderboard: async (params?: { limit?: number; scope?: 'current' | 'all' }): Promise<{
+      scope: string;
+      leaders: Array<{ rank: number; displayName: string; found: number; lastFoundAt: string }>;
+    }> => {
+      const response = await httpClient.get(API_ENDPOINTS.huntLeaderboard, { params: params || {} });
+      return response.data;
+    },
+    getMyProgress: async (): Promise<{
+      found: number;
+      totalGolden: number | null;
+      rank: number | null;
+      percentile: number | null;
+      totalHunters?: number;
+    }> => {
+      const auth = await api.getAuthHeaders();
+      const device = await api.withDeviceHeaders();
+      const response = await httpClient.get(API_ENDPOINTS.huntMe, {
+        headers: { ...auth, ...device.headers },
+      });
+      return response.data;
+    },
     registerPushToken: async (pushToken: string): Promise<{ ok: boolean }> => {
       const cfg = await api.withDeviceHeaders();
       const auth = await api.getAuthHeaders();
