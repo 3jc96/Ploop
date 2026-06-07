@@ -7,7 +7,6 @@ SplashScreen.preventAutoHideAsync().catch(() => {});
 import { createStackNavigator } from '@react-navigation/stack';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import * as WebBrowser from 'expo-web-browser';
 import { initGoogleSignIn } from './src/utils/initGoogleSignIn';
 import { AppErrorBoundary } from './src/AppErrorBoundary';
@@ -107,7 +106,6 @@ export default function App() {
   return (
     <AppErrorBoundary>
       <GestureHandlerRootView style={{ flex: 1 }}>
-        <BottomSheetModalProvider>
         <SafeAreaProvider>
           <SplashSoundGate>
           <LanguageProvider>
@@ -197,7 +195,6 @@ export default function App() {
           </LanguageProvider>
           </SplashSoundGate>
         </SafeAreaProvider>
-        </BottomSheetModalProvider>
       </GestureHandlerRootView>
     </AppErrorBoundary>
   );
