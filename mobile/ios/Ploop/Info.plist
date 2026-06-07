@@ -23,7 +23,7 @@
     <key>CFBundlePackageType</key>
     <string>$(PRODUCT_BUNDLE_PACKAGE_TYPE)</string>
     <key>CFBundleShortVersionString</key>
-    <string>1.2.28</string>
+    <string>1.2.29</string>
     <key>CFBundleSignature</key>
     <string>????</string>
     <key>CFBundleURLTypes</key>
@@ -43,7 +43,7 @@
       </dict>
     </array>
     <key>CFBundleVersion</key>
-    <string>79</string>
+    <string>81</string>
     <key>GMSApiKey</key>
     <string>AIzaSyCLKBC2IeU1rQVSdhSZBCfDu984LcwiSXg</string>
     <key>ITSAppUsesNonExemptEncryption</key>
@@ -59,6 +59,8 @@
     </dict>
     <key>NSCameraUsageDescription</key>
     <string>Allow $(PRODUCT_NAME) to access your camera</string>
+    <key>NSContactsUsageDescription</key>
+    <string>Ploop uses your contacts so you can pick someone to notify in an SOS.</string>
     <key>NSFaceIDUsageDescription</key>
     <string>Ploop uses Face ID to unlock the Admin section.</string>
     <key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
