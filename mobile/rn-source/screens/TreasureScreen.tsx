@@ -50,7 +50,7 @@ export default function TreasureScreen() {
               ? `Next hunt starts in ${status.daysUntilStart} day${status.daysUntilStart === 1 ? '' : 's'}`
               : 'No active hunt right now'}
         </Text>
-        {active && myTotal != null ? (
+        {active && myTotal != null && myTotal > 0 ? (
           <>
             <View style={styles.pcBarTrack}>
               <View style={[styles.pcBarFill, { width: `${progressPct}%` }]} />
