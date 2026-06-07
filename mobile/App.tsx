@@ -33,6 +33,8 @@ const LocationReviewScreen = React.lazy(() => import('./src/screens/LocationRevi
 const AdminScreen = React.lazy(() => import('./src/screens/AdminScreen'));
 const ProfileScreen = React.lazy(() => import('./rn-source/screens/ProfileScreen'));
 const SOSScreen = React.lazy(() => import('./rn-source/screens/SOSScreen'));
+const DesignHome = React.lazy(() => import('./rn-source/navigation/index'));
+const ToiletDetailDesignScreen = React.lazy(() => import('./rn-source/screens/ToiletDetailDesignScreen'));
 
 const Stack = createStackNavigator();
 
@@ -50,6 +52,8 @@ const linking = {
       Admin: 'admin',
       Profile: 'profile',
       SOS: 'sos',
+      DesignHome: 'design',
+      ToiletDetailDesign: 'design/toilet/:toiletId',
       PoopGame: 'game',
       ToiletDetails: 'toilet/:id',
       AddToilet: 'add',
@@ -168,7 +172,17 @@ export default function App() {
               <Stack.Screen
                 name="SOS"
                 component={withSuspense(SOSScreen)}
-                options={{ title: 'SOS' }}
+                options={{ title: 'SOS', headerShown: false }}
+              />
+              <Stack.Screen
+                name="DesignHome"
+                component={withSuspense(DesignHome)}
+                options={{ title: 'Ploop', headerShown: false }}
+              />
+              <Stack.Screen
+                name="ToiletDetailDesign"
+                component={withSuspense(ToiletDetailDesignScreen)}
+                options={{ title: 'Toilet', headerShown: false }}
               />
               <Stack.Screen
                 name="PoopGame"

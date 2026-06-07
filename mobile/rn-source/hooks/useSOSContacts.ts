@@ -27,10 +27,10 @@ function initials(name: string): string {
   return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
 }
 
-function mapContact(contact: Contacts.Contact): SOSContact {
+function mapContact(contact: Contacts.ExistingContact): SOSContact {
   const name = contactName(contact);
   return {
-    id: contact.id ?? `${name}-${primaryPhone(contact) ?? 'no-phone'}`,
+    id: contact.id || `${name}-${primaryPhone(contact) ?? 'no-phone'}`,
     name,
     phone: primaryPhone(contact),
     initials: initials(name),

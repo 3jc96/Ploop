@@ -3,7 +3,7 @@
     "name": "Ploop",
     "slug": "ploop",
     "scheme": "ploop",
-    "version": "1.2.27",
+    "version": "1.2.28",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -20,7 +20,7 @@
     },
     "ios": {
       "supportsTablet": true,
-      "buildNumber": "77",
+      "buildNumber": "78",
       "bundleIdentifier": "com.ploop.app",
       "config": {
         "googleMapsApiKey": "AIzaSyCLKBC2IeU1rQVSdhSZBCfDu984LcwiSXg"

@@ -1,173 +1,202 @@
 import React from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
-import { useProfileData, ProfileData, ProfileStats } from '../hooks/useProfileData';
+import { useNavigation } from '@react-navigation/native';
+import { colors, radius, spacing, typography } from '../theme';
+import { ScrollPage } from '../components/ui';
+import { useProfileData, ProfileStats } from '../hooks/useProfileData';
+import { useAuth } from '../../src/context/AuthContext';
 
 type ProfileScreenProps = {
-  /** Override hook data when embedding in tests or storybook. */
   username?: string;
   memberSince?: string;
   stats?: ProfileStats;
   email?: string;
 };
 
-function StatCard({ label, value }: { label: string; value: number }) {
+function StatCell({ value, label }: { value: string | number; label: string }) {
   return (
-    <View style={styles.statCard}>
-      <Text style={styles.statValue}>{value}</Text>
-      <Text style={styles.statLabel}>{label}</Text>
+    <View style={styles.statCell}>
+      <Text style={styles.statNum}>{value}</Text>
+      <Text style={styles.statLbl}>{label}</Text>
     </View>
   );
 }
 
-function ProfileContent({
-  username,
-  memberSince,
-  stats,
-  email,
-  onRefresh,
-  refreshing,
+function SettingRow({
+  icon,
+  iconBg,
+  label,
+  onPress,
 }: {
-  username: string;
-  memberSince: string;
-  stats: ProfileStats;
-  email: string;
-  onRefresh?: () => void;
-  refreshing?: boolean;
+  icon: string;
+  iconBg: string;
+  label: string;
+  onPress?: () => void;
 }) {
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{username.slice(0, 1).toUpperCase()}</Text>
-        </View>
-        <Text style={styles.username}>{username}</Text>
-        <Text style={styles.memberSince}>{memberSince}</Text>
-        {email ? <Text style={styles.email}>{email}</Text> : null}
+    <Pressable style={styles.profRow} onPress={onPress}>
+      <View style={[styles.profIco, { backgroundColor: iconBg }]}>
+        <Text style={{ fontSize: 15 }}>{icon}</Text>
       </View>
-
-      <View style={styles.statsRow}>
-        <StatCard label="Reviews" value={stats.reviews} />
-        <StatCard label="Check-ins" value={stats.checkIns} />
-        <StatCard label="Saved" value={stats.saved} />
-      </View>
-
-      {onRefresh ? (
-        <Pressable style={styles.refreshButton} onPress={onRefresh} disabled={refreshing}>
-          <Text style={styles.refreshText}>{refreshing ? 'Refreshing…' : 'Refresh profile'}</Text>
-        </Pressable>
-      ) : null}
-    </View>
+      <Text style={styles.profRowLbl}>{label}</Text>
+      <Text style={styles.chev}>{'\u203a'}</Text>
+    </Pressable>
   );
 }
 
 export default function ProfileScreen(props: ProfileScreenProps) {
+  const navigation = useNavigation<any>();
   const live = useProfileData();
+  const { user, logout } = useAuth();
 
   if (live.loading && !props.username) {
     return (
       <View style={styles.centered}>
-        <ActivityIndicator size="large" color="#2563eb" />
+        <ActivityIndicator size="large" color={colors.blue} />
       </View>
     );
   }
 
-  const data: Pick<ProfileData, 'username' | 'memberSince' | 'stats' | 'email'> = {
-    username: props.username ?? live.username,
-    memberSince: props.memberSince ?? live.memberSince,
-    stats: props.stats ?? live.stats,
-    email: props.email ?? live.email,
-  };
+  const username = props.username ?? live.username;
+  const memberSince = props.memberSince ?? live.memberSince;
+  const stats = props.stats ?? live.stats;
 
   return (
-    <ProfileContent
-      username={data.username}
-      memberSince={data.memberSince}
-      stats={data.stats}
-      email={data.email}
-      onRefresh={props.username ? undefined : live.refresh}
-      refreshing={live.loading}
-    />
+    <ScrollPage style={styles.container}>
+      <View style={styles.header}>
+        <View style={styles.avatar}>
+          <Text style={styles.avatarEmoji}>{'\ud83d\udeBD'}</Text>
+        </View>
+        <View style={styles.headerText}>
+          <Text style={styles.profName} numberOfLines={1}>
+            {username.startsWith('@') ? username : `@${username}`}
+          </Text>
+          <Text style={styles.profSince}>{memberSince}</Text>
+        </View>
+      </View>
+
+      <View style={styles.statRow}>
+        <StatCell value={stats.reviews} label="Reviews" />
+        <View style={styles.statDivider} />
+        <StatCell value={stats.checkIns} label="Check-ins" />
+        <View style={styles.statDivider} />
+        <StatCell value={stats.saved} label="Saved" />
+      </View>
+
+      <Text style={styles.sectionLabel}>Settings</Text>
+      <View style={styles.section}>
+        <SettingRow
+          icon={'\ud83d\udd14'}
+          iconBg="#ffe4e6"
+          label="Notifications"
+          onPress={() => {}}
+        />
+        <SettingRow icon={'\ud83d\udd12'} iconBg="#dbeafe" label="Privacy" onPress={() => {}} />
+        <SettingRow
+          icon={'\ud83d\udccd'}
+          iconBg="#dcfce7"
+          label="Location Sharing"
+          onPress={() => {}}
+        />
+        <SettingRow icon={'\u2b50'} iconBg="#fef9c3" label="Rate Ploop" onPress={() => {}} />
+      </View>
+
+      {user ? (
+        <Pressable style={styles.signOut} onPress={() => logout()}>
+          <Text style={styles.signOutText}>Sign out</Text>
+        </Pressable>
+      ) : (
+        <Pressable style={styles.signOut} onPress={() => navigation.navigate('Login')}>
+          <Text style={[styles.signOutText, { color: colors.blue }]}>Sign in</Text>
+        </Pressable>
+      )}
+
+      <View style={{ height: spacing.xl }} />
+    </ScrollPage>
   );
 }
 
 const styles = StyleSheet.create({
-  centered: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#f8fafc',
-  },
-  container: {
-    flex: 1,
-    backgroundColor: '#f8fafc',
-    padding: 24,
-  },
+  container: { backgroundColor: colors.bg2 },
+  centered: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.bg2 },
+
   header: {
+    backgroundColor: colors.bg,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.xxl,
+    paddingBottom: spacing.xl,
+    flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 28,
+    gap: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.separator,
   },
   avatar: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
-    backgroundColor: '#dbeafe',
+    width: 64,
+    height: 64,
+    backgroundColor: colors.blueLight,
+    borderRadius: 32,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
+    borderWidth: 2,
+    borderColor: colors.blue,
   },
-  avatarText: {
-    fontSize: 36,
-    fontWeight: '700',
-    color: '#1d4ed8',
-  },
-  username: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#0f172a',
-  },
-  memberSince: {
-    marginTop: 4,
-    fontSize: 14,
-    color: '#64748b',
-  },
-  email: {
-    marginTop: 2,
-    fontSize: 13,
-    color: '#94a3b8',
-  },
-  statsRow: {
+  avatarEmoji: { fontSize: 28 },
+  headerText: { flex: 1, minWidth: 0 },
+  profName: { fontSize: 20, fontWeight: '700', letterSpacing: -0.3, color: colors.label },
+  profSince: { fontSize: 13, color: colors.label2, marginTop: 2 },
+
+  statRow: {
     flexDirection: 'row',
-    gap: 12,
+    backgroundColor: colors.bg,
+    borderRadius: radius.xl,
+    margin: spacing.sm,
+    overflow: 'hidden',
   },
-  statCard: {
-    flex: 1,
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    paddingVertical: 18,
+  statCell: { flex: 1, paddingVertical: 14, paddingHorizontal: 10, alignItems: 'center' },
+  statDivider: { width: StyleSheet.hairlineWidth, backgroundColor: colors.separator },
+  statNum: { fontSize: 22, fontWeight: '700', color: colors.label, letterSpacing: -0.5 },
+  statLbl: { fontSize: 11, color: colors.label2, marginTop: 2, fontWeight: '500' },
+
+  sectionLabel: {
+    ...typography.sectionLabel,
+    color: colors.label2,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
+    paddingBottom: 7,
+  },
+  section: {
+    backgroundColor: colors.bg,
+    marginHorizontal: spacing.sm,
+    borderRadius: radius.xl,
+    overflow: 'hidden',
+  },
+  profRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
+    gap: 12,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: 13,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.separator,
   },
-  statValue: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#0f172a',
+  profIco: {
+    width: 30,
+    height: 30,
+    borderRadius: radius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  statLabel: {
-    marginTop: 4,
-    fontSize: 12,
-    color: '#64748b',
+  profRowLbl: { flex: 1, fontSize: 15, fontWeight: '500', color: colors.label },
+  chev: { color: colors.label3, fontSize: 20 },
+
+  signOut: {
+    margin: spacing.sm,
+    marginTop: spacing.lg,
+    backgroundColor: colors.bg,
+    borderRadius: radius.xl,
+    paddingVertical: 14,
+    alignItems: 'center',
   },
-  refreshButton: {
-    marginTop: 24,
-    alignSelf: 'center',
-    paddingHorizontal: 18,
-    paddingVertical: 10,
-    borderRadius: 999,
-    backgroundColor: '#2563eb',
-  },
-  refreshText: {
-    color: '#fff',
-    fontWeight: '600',
-  },
+  signOutText: { fontSize: 15, fontWeight: '600', color: colors.red },
 });
