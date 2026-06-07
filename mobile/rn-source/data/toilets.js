@@ -5,8 +5,9 @@
 import * as Location from 'expo-location';
 import { api } from '../../src/services/api';
 
-const DEFAULT_RADIUS_M = 100_000;
-const DEFAULT_LIMIT = 500;
+// Backend (/api/toilets) caps radius at 10 km and limit at 100.
+const DEFAULT_RADIUS_M = 10_000;
+const DEFAULT_LIMIT = 100;
 
 function toNumber(value) {
   if (value == null) return null;

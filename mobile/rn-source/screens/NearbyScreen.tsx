@@ -70,7 +70,8 @@ export default function NearbyScreen() {
     else setLoading(true);
     setError(null);
     try {
-      const data = await fetchNearbyToilets({ radius: 100_000, limit: 500 });
+      // Backend caps radius at 10 km and limit at 100.
+      const data = await fetchNearbyToilets({ radius: 10_000, limit: 100 });
       setToilets(data);
     } catch (e: any) {
       setError(e?.message ?? 'Failed to load toilets');
