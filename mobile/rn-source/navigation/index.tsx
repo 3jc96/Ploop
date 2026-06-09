@@ -11,7 +11,6 @@ import React from 'react';
 import { Text } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { colors } from '../theme';
-import NearbyScreen from '../screens/NearbyScreen';
 import TreasureScreen from '../screens/TreasureScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 
@@ -48,11 +47,6 @@ export default function RootNavigation() {
         name="MapTab"
         component={MapTab}
         options={{ title: 'Map', tabBarIcon: tabIcon('\ud83e\udded') }}
-      />
-      <Tab.Screen
-        name="Nearby"
-        component={NearbyScreen}
-        options={{ title: 'Nearby', headerShown: true, tabBarIcon: tabIcon('\ud83d\udccb') }}
       />
       <Tab.Screen
         name="Treasure"
