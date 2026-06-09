@@ -28,7 +28,7 @@ router.get('/status', optionalAuth, async (_req: Request, res: Response) => {
     const { rows: activeHunts } = await pool.query<{
       id: string; month_key: string; starts_at: string; ends_at: string;
     }>(
-      'SELECT id, month_key, starts_at, ends_at FROM golden_hunts WHERE starts_at <= now() AND ends_at >= now() LIMIT 1',
+      'SELECT id, month_key, starts_at, ends_at FROM golden_hunts WHERE starts_at <= now() AND ends_at >= now() AND is_paused = false ORDER BY starts_at DESC LIMIT 1',
     );
 
     if (activeHunts.length > 0) {

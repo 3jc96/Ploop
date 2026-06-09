@@ -162,6 +162,7 @@ export async function sendHuntNotifications(hunt: {
 export interface GoldenCheckinResult {
   isGolden: true;
   eligible: boolean;
+  dailyLimitReached: boolean;
   toiletName: string;
   city: string;
 }
@@ -177,7 +178,7 @@ export async function handleGoldenCheckin(
 ): Promise<GoldenCheckinResult | null> {
   // Is there an active (non-paused) hunt?
   const { rows: hunts } = await pool.query<{ id: string }>(
-    'SELECT id FROM golden_hunts WHERE starts_at <= now() AND ends_at >= now() AND is_paused = false LIMIT 1',
+    'SELECT id FROM golden_hunts WHERE starts_at <= now() AND ends_at >= now() AND is_paused = false ORDER BY starts_at DESC LIMIT 1',
   );
   if (hunts.length === 0) return null;
   const huntId = hunts[0].id;
@@ -202,6 +203,16 @@ export async function handleGoldenCheckin(
   );
   if (cityStatus.length > 0 && (cityStatus[0].is_paused || cityStatus[0].is_ended)) return null;
 
+  // Enforce max 2 distinct golden toilet check-ins per device per day
+  const { rows: dailyRows } = await pool.query<{ count: string }>(
+    `SELECT COUNT(DISTINCT golden_hunt_toilet_id)::text AS count
+     FROM golden_hunt_checkins
+     WHERE hunt_id = $1 AND device_id = $2 AND checked_in_at::date = CURRENT_DATE`,
+    [huntId, deviceId],
+  );
+  const dailyGoldenCount = parseInt(dailyRows[0]?.count ?? '0', 10);
+  const dailyLimitReached = dailyGoldenCount >= 2;
+
   // Only the very first check-in on a toilet (globally) is voucher-eligible
   const isFirstFinder = !golden.is_found;
 
@@ -210,8 +221,8 @@ export async function handleGoldenCheckin(
     await pool.query('UPDATE golden_hunt_toilets SET is_found = true, found_at = now() WHERE id = $1', [golden.id]);
   }
 
-  // Record the check-in for admin tracking (all check-ins, but voucher only for first finder)
-  const eligible = isFirstFinder;
+  // Record eligible check-ins (first finder + within daily limit)
+  const eligible = isFirstFinder && !dailyLimitReached;
   if (eligible) {
     let userName: string | null = null;
     let userEmail: string | null = null;
@@ -231,7 +242,7 @@ export async function handleGoldenCheckin(
     notifyCheckin(golden.name, golden.city, userEmail, deviceId).catch(() => {});
   }
 
-  return { isGolden: true, eligible, toiletName: golden.name, city: golden.city };
+  return { isGolden: true, eligible, dailyLimitReached, toiletName: golden.name, city: golden.city };
 }
 
 async function notifyCheckin(

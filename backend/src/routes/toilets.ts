@@ -508,9 +508,13 @@ router.post(
           checked_in: true,
           message: golden.eligible
             ? 'Golden toilet found! You are eligible for a $10 voucher!'
-            : 'Golden toilet! Daily limit of 2 reached — check in tomorrow to qualify.',
+            : golden.dailyLimitReached
+              ? 'Golden toilet! Daily limit of 2 reached — check in tomorrow to qualify.'
+              : 'Golden toilet! Already claimed — but great find!',
           golden: true,
           golden_eligible: golden.eligible,
+          toilet_name: golden.toiletName,
+          city: golden.city,
         });
       }
 
